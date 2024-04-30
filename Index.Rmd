@@ -73,15 +73,26 @@ GHG_UK22 <- read_ods(
   replace(is.na(.), "") #get rid of NA values, input blank
 
 #Define custom color palette ####
-colors <- c(
+colors_bysize <- c(
   "#3CBD9C", #transport
-           "#F0A7CA", #buildings
-           "#F0C954", #industry
-           "#C24841", #electricity
-           "#96BC61", #ag green
-           "#5D7ED1", #lulucf blue
-           "#D38744", #fuel
-           "#A780BB"  #waste purple
+  "#F0A7CA", #buildings
+  "#F0C954", #industry
+  "#C24841", #electricity
+  "#96BC61", #ag green
+  "#5D7ED1", #lulucf blue
+  "#D38744", #fuel
+  "#A780BB"  #waste purple
+)
+
+colors_alphabetically <- c(
+  "#96BC61", #ag green
+  "#F0A7CA", #buildings
+  "#3CBD9C", #transport
+  "#C24841", #electricity
+  "#D38744", #fuel            
+  "#F0C954", #industry
+  "#5D7ED1", #lulucf blue
+  "#A780BB"  #waste purple
 )
 
 
@@ -301,7 +312,7 @@ produce_eplot <- shiny::reactive({
   ) %>%
     layout(
       #margin = list(l = 10, r = 10, b = 10, t = 10),
-      sunburstcolorway = colors,
+      sunburstcolorway = colors_bysize,
       extendsunburstcolors = TRUE
     ) #%>%
   
@@ -442,16 +453,7 @@ produce_tplot <- shiny::reactive({
 
     
   plot_ly(x= ~year, y= ~Temissions, group= ~Sector, color= ~Sector, 
-          type="scatter", mode= "lines", colors = c(
-            "#96BC61", #ag green
-            "#F0A7CA", #buildings
-            "#3CBD9C", #transport
-            "#C24841", #electricity
-            "#D38744", #fuel            
-            "#F0C954", #industry
-            "#5D7ED1", #lulucf blue
-            "#A780BB"  #waste purple
-)
+          type="scatter", mode= "lines", colors = colors_alphabetically
           ) %>%
     layout(
       title = "",
