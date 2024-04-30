@@ -19,24 +19,13 @@ runtime: shiny
 
 options(repos = list(CRAN="http://cran.rstudio.com/")) #tell to install all from CRAN
 
-#Initialize renv in your project (if not already done)
-#renv::init()
-
-#lapply(.libPaths(), list.files)
-
-# Install specific packages (replace with your desired package names)
-#packages_to_install <- c("readODS","shinyWidgets")
-#renv::install(packages = packages_to_install)
-
-#renv::snapshot()
-
-#Install
-install.packages("readODS")
-install.packages("shinyWidgets")
-
 #Define groups of libraries
-datalibraries <- c("dplyr", "tidyr", "stringr", "janitor", "readODS", "scales") #data reading and  manipulation
+datalibraries <- c("dplyr", "tidyr", "stringr", "purrr", "janitor", "readODS", "scales") #data reading and  manipulation
 applibraries <- c("shiny", "plotly", "shinyWidgets", "flexdashboard", "DT") #libraries for app
+
+#Install packages
+#lapply(datalibraries, install.packages, character.only = TRUE)
+#lapply(applibraries, install.packages, character.only = TRUE)
 
 #Require packages
 lapply(datalibraries, require, character.only = TRUE)
