@@ -75,13 +75,24 @@ GHG_UK22 <- read_ods(
 #Define custom color palette ####
 colors_bysize <- c(
   "#3CBD9C", #transport
-           "#F0A7CA", #buildings
-           "#F0C954", #industry
-           "#C24841", #electricity
-           "#96BC61", #ag green
-           "#5D7ED1", #lulucf blue
-           "#D38744", #fuel
-           "#A780BB"  #waste purple
+  "#F0A7CA", #buildings
+  "#F0C954", #industry
+  "#C24841", #electricity
+  "#96BC61", #ag green
+  "#5D7ED1", #lulucf blue
+  "#D38744", #fuel
+  "#A780BB"  #waste purple
+)
+
+colors_alphabetically <- c(
+  "#96BC61", #ag green
+  "#F0A7CA", #buildings
+  "#3CBD9C", #transport
+  "#C24841", #electricity
+  "#D38744", #fuel            
+  "#F0C954", #industry
+  "#5D7ED1", #lulucf blue
+  "#A780BB"  #waste purple
 )
 
 colors_alphabetical = c(
@@ -453,7 +464,11 @@ produce_tplot <- shiny::reactive({
 
     
   plot_ly(x= ~year, y= ~Temissions, group= ~Sector, color= ~Sector, 
+<<<<<<< HEAD
           type="scatter", mode= "lines", colors = colors_alphabetical
+=======
+          type="scatter", mode= "lines", colors = colors_alphabetically
+>>>>>>> 77f40ed22b82e1afa09dad7adb1c499524719634
           ) %>%
     layout(
       title = "",
