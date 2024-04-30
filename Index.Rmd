@@ -73,7 +73,7 @@ GHG_UK22 <- read_ods(
   replace(is.na(.), "") #get rid of NA values, input blank
 
 #Define custom color palette ####
-colors <- c(
+colors_bysize <- c(
   "#3CBD9C", #transport
            "#F0A7CA", #buildings
            "#F0C954", #industry
@@ -84,6 +84,16 @@ colors <- c(
            "#A780BB"  #waste purple
 )
 
+colors_alphabetical = c(
+            "#96BC61", #ag green
+            "#F0A7CA", #buildings
+            "#3CBD9C", #transport
+            "#C24841", #electricity
+            "#D38744", #fuel            
+            "#F0C954", #industry
+            "#5D7ED1", #lulucf blue
+            "#A780BB"  #waste purple
+)
 
 colors_3lvls <- c(
   "#C24841", #CH4
@@ -139,7 +149,7 @@ Row
 -----------------------------------------------------------------------
 ### GHG Emissions (Mt CO2 eq.)
 
-```{r, error=FALSE}
+```{r}
 
 renderValueBox({
 
@@ -160,7 +170,7 @@ valueBox(emissions,
 
 ### Negative Emissions (Mt CO2 eq.)
 
-```{r, error=FALSE}
+```{r}
 
 renderValueBox({
   
@@ -180,7 +190,7 @@ valueBox(removals,
 
 ### Net Emissions (Mt CO2 eq.)
 
-```{r, error=FALSE}
+```{r}
 
 renderValueBox({
   
@@ -201,7 +211,7 @@ Row {data-height=650}
 -----------------------------------------------------------------------
 ### Greenhouse Gas (GHG) Emissions by Sector
 Hover over sections to see details about emissions. Click a division within the pie to "zoom in" and view a further breakdown of that sector or category. Click the center to "zoom out" back towards the broader view. 
-```{r, error=FALSE}
+```{r}
 
 produce_eplot <- shiny::reactive({
   
@@ -301,7 +311,7 @@ produce_eplot <- shiny::reactive({
   ) %>%
     layout(
       #margin = list(l = 10, r = 10, b = 10, t = 10),
-      sunburstcolorway = colors,
+      sunburstcolorway = colors_bysize,
       extendsunburstcolors = TRUE
     ) #%>%
   
@@ -323,7 +333,7 @@ Row
 -----------------------------------------------------------------------
 ### Negative Emissions (Removals)
 
-```{r, error=FALSE,}
+```{r}
 
 produce_rplot <- shiny::reactive({
   
@@ -421,9 +431,10 @@ GHG_neg <- GHG_UK22 %>%
 plotly::renderPlotly({produce_rplot()})
 
 ```
+
 ### Time Series
 
-```{r, error=FALSE,}
+```{r}
 
 produce_tplot <- shiny::reactive({
   
@@ -442,16 +453,7 @@ produce_tplot <- shiny::reactive({
 
     
   plot_ly(x= ~year, y= ~Temissions, group= ~Sector, color= ~Sector, 
-          type="scatter", mode= "lines", colors = c(
-            "#96BC61", #ag green
-            "#F0A7CA", #buildings
-            "#3CBD9C", #transport
-            "#C24841", #electricity
-            "#D38744", #fuel            
-            "#F0C954", #industry
-            "#5D7ED1", #lulucf blue
-            "#A780BB"  #waste purple
-)
+          type="scatter", mode= "lines", colors = colors_alphabetical
           ) %>%
     layout(
       title = "",
@@ -551,7 +553,7 @@ For the bar graphs below, hover your pointer over bars to view details, and clic
 
 #### Emissions by Subsector and GHG
 
-```{r, error=FALSE,}
+```{r}
 
 produce_agplot <- shiny::reactive({
 
@@ -583,7 +585,7 @@ renderPlotly({produce_agplot()})
 
 #### Emissions by Category
 
-```{r, error=FALSE}
+```{r}
 
 produce_agcatplot <- shiny::reactive({
   
@@ -633,7 +635,8 @@ agcom_int <- GHG_UK22 %>%
   pivot_wider(names_from = activity, values_from=Temissions) %>%
   clean_names() %>%
   droplevels() %>%
-  plot_ly(x = ~category_1, type = 'bar', y = ~gas_oil, name = 'Gas oil', marker = list(color ="#C24841")) %>%
+  plot_ly(x = ~category_1, type = 'bar', 
+          y = ~gas_oil, name = 'Gas oil', marker = list(color ="#C24841")) %>%
   add_trace(y = ~petrol, name = 'Petrol', marker = list(color ="#A780BB")) %>%
   add_trace(y = ~biogas, name = 'Biogas', marker = list(color ="#3CBD9C")) %>%
   add_trace(y = ~burning_oil, name = 'Burning oil', marker = list(color ="#F0A7CA")) %>%
@@ -689,7 +692,7 @@ agsoil_int <- GHG_UK22 %>%
   mutate(across(everything(),  ~ replace(., . <= 0, NA))) %>% #make back into NA to ignore in graph
   
   #Plot
-    plot_ly(x = ~category_1, type = 'bar', 
+  plot_ly(x = ~category_1, type = 'bar', 
           y = ~managed_histosols, name = 'Managed histosols', marker = list(color ="#D38744")) %>%
   add_trace(y = ~liming, name = 'Liming', marker = list(color ="#3CBD9C")) %>%
   add_trace(y = ~direct1, name = 'Direct', marker = list(color ="#C24841")) %>%
@@ -758,7 +761,7 @@ produce_agls <- shiny::reactive({
 agls_int <- GHG_UK22 %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Livestock") %>%
-  #filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   group_by(category_1, category_2) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = category_1, values_from=Temissions) %>%
@@ -859,6 +862,7 @@ produce_wplot <- shiny::reactive({
   
   #Bar plot by subsector, stacked by GHG with Plotly
 Waste_int <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   group_by(tes_category, ghg, ghg_grouped) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -893,6 +897,7 @@ produce_lulucf <- shiny::reactive({
   
   #Bar plot by subsector, stacked by GHG with Plotly
 LULUCF_int <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
   filter(tes_sector == "LULUCF") %>%
   group_by(tes_subsector, ghg, ghg_grouped) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -924,6 +929,7 @@ produce_lulucf2 <- shiny::reactive({
   
   #Bar plot by category, filled by subsector with Plotly
 LULUCFcat_int <- GHG_UK22 %>% 
+  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   filter(tes_sector == "LULUCF") %>%
   group_by(tes_subsector, tes_category) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
