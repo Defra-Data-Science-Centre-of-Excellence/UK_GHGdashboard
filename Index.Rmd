@@ -19,21 +19,19 @@ runtime: shiny
 
 options(repos = list(CRAN="http://cran.rstudio.com/")) #tell to install all from CRAN
 
-#Define groups of libraries
-datalibraries <- c("dplyr", "tidyr", "stringr", "purrr", "janitor", "readODS", "scales") #data reading and  manipulation
-applibraries <- c("shiny", "plotly", "shinyWidgets", "flexdashboard", "DT") #libraries for app
-
-#Install packages
-#lapply(datalibraries, install.packages, character.only = TRUE)
-#lapply(applibraries, install.packages, character.only = TRUE)
-
-#Require packages
-lapply(datalibraries, require, character.only = TRUE)
-lapply(applibraries, require, character.only = TRUE)
-
 #Load libraries
-lapply(datalibraries, library, character.only = TRUE)
-lapply(applibraries, library, character.only = TRUE)
+library(readODS) #read ODS file
+library(purrr) #map function to download data
+library(dplyr) #data manipulation
+library(tidyr) #data manipulation
+library(stringr) #string manipulation
+library(janitor) #clean data
+library(scales) #scaling for graphs
+library(shiny) #interactive app
+library(plotly) #interactive plots
+library(shinyWidgets) #custom widgets
+library(flexdashboard) #dashboard layout with Rmd
+library(DT) #reactive datatables
 
 ```
 
@@ -95,17 +93,6 @@ colors_alphabetically <- c(
   "#A780BB"  #waste purple
 )
 
-colors_alphabetical = c(
-            "#96BC61", #ag green
-            "#F0A7CA", #buildings
-            "#3CBD9C", #transport
-            "#C24841", #electricity
-            "#D38744", #fuel            
-            "#F0C954", #industry
-            "#5D7ED1", #lulucf blue
-            "#A780BB"  #waste purple
-)
-
 colors_3lvls <- c(
   "#C24841", #CH4
            "#3CBD9C", #CO2
@@ -116,8 +103,7 @@ colors_3lvls <- c(
 if (!interactive()) {
   options(shiny.error = function() {
   stop("Insufficient data. Please change your filter selection on the left.")
-  })
-}
+  })}
 
 ```
 
@@ -461,14 +447,8 @@ produce_tplot <- shiny::reactive({
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = FALSE)) %>%
     rename("Sector" = "tes_sector") %>% #rename variable
     ungroup() %>%
-
-    
   plot_ly(x= ~year, y= ~Temissions, group= ~Sector, color= ~Sector, 
-<<<<<<< HEAD
-          type="scatter", mode= "lines", colors = colors_alphabetical
-=======
           type="scatter", mode= "lines", colors = colors_alphabetically
->>>>>>> 77f40ed22b82e1afa09dad7adb1c499524719634
           ) %>%
     layout(
       title = "",
@@ -1129,7 +1109,7 @@ It includes the final estimates of UK territorial greenhouse gas emissions from 
 
 The goals of this dashboard include:   
 
-* Provide quick snapshot views of the current and historical greenhouse gas emissions and removals of the UK   
+* Provide quick snapshot views of the current and historical greenhouse gas emissions and removals of the UK
 
 * Demonstrate the proportion of greenhouse gas emissions contributed by each sector in the UK   
 
