@@ -68,6 +68,15 @@ GHG_UK22 <- read_ods(
                        names = c("activity_1", "activity_2"), #name new columns
                        too_few = "align_start", too_many = "merge", #what to do with fewer or more than 2
                        cols_remove = FALSE) %>% #keep original column
+  mutate(department = case_when(tes_sector == "Agriculture" ~ "Defra",
+                                tes_sector == "LULUCF" ~ "Defra",
+                                tes_sector == "Waste" ~ "Defra",
+                                tes_sector == "Buildings and product uses" ~"DESNZ",
+                                tes_sector == "Electricity supply" ~"DESNZ",
+                                tes_sector == "Fuel supply" ~"DESNZ",
+                                tes_sector == "Industry" ~"DESNZ",
+                                tes_sector == "Domestic transport" ~"Dft"
+  )) %>%
   replace(is.na(.), "") #get rid of NA values, input blank
 
 #Define custom color palette ####
