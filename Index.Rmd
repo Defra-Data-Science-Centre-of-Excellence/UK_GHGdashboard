@@ -140,6 +140,14 @@ sliderInput("select_Year", #input name
             step = 1,
             sep = "") #remove commas
 
+#pickerInput via shinyWidgets to select multiple government departments
+pickerInput("select_dept", #input name
+            "Department Ownership", #display text
+            choices = c("Defra","DESNZ","Dft"), 
+            multiple = TRUE,
+            options = list(`actions-box` = TRUE), #creates buttons
+            selected = c("Defra","DESNZ","Dft") #initial values 
+            )
 
 ```
 
@@ -162,7 +170,7 @@ renderValueBox({
 #Calculate total positive emissions
 emissions <- GHG_UK22 %>%
   filter(emissions_mt_co2e >= "0") %>%
-  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG & department %in% input$select_dept) %>%
   summarize(sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   round(., 1) #1 digit after decimal
 
@@ -183,7 +191,9 @@ renderValueBox({
 #Calculate total negative emissions
 removals <- GHG_UK22 %>%
   filter(emissions_mt_co2e <= "0") %>%
-  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+  filter(year == input$select_Year & 
+           ghg_grouped %in% input$select_GHG & 
+           department %in% input$select_dept) %>%
   summarize(sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   round(., 1) #1 digit after decimal
 
@@ -202,7 +212,9 @@ renderValueBox({
   
 #Calculate total emissions
 net <- GHG_UK22 %>%
-  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+  filter(year == input$select_Year & 
+           ghg_grouped %in% input$select_GHG & 
+           department %in% input$select_dept) %>%
   summarize(sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   round(., 1) #1 digit after decimal
 
@@ -225,8 +237,9 @@ produce_eplot <- shiny::reactive({
   
   ## Apply filters
   GHG_pos <- GHG_UK22 %>%
-    #filter(year == "2022") %>%
-    filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+    filter(year == input$select_Year & 
+             ghg_grouped %in% input$select_GHG &
+             department %in% input$select_dept) %>%
     filter(emissions_mt_co2e >= "0") #subset filter only positive values
   
   #Run validate an input is selected
@@ -275,8 +288,12 @@ produce_eplot <- shiny::reactive({
   
   
   ##Now paste together distinct instances into dataframe with hierarchical structure - start simple, set root
+  
+  #Define number of rows to show
+  root <- nrow(sectors)
+  
   GHGsb1 <- data.frame(
-    parents =c(rep("", 8)),
+    parents = c(rep("", root)),
     labels =c(paste0(sectors$tes_sector)),
     values =as.numeric(c(paste0(sectors$Temissions)))
   )
@@ -300,7 +317,6 @@ produce_eplot <- shiny::reactive({
   
   ##Combine into one dataframe
   GHGsb <- rbind(GHGsb1, GHGsb2) 
-  
   
   ## Sunburst Emissions with Plotly ####
   sb <- plot_ly(GHGsb,
@@ -347,7 +363,7 @@ produce_rplot <- shiny::reactive({
   
   ##Apply filters
 GHG_neg <- GHG_UK22 %>%
-  filter(year == input$select_Year) %>%
+  filter(year == input$select_Year & department %in% input$select_dept) %>%
   filter(emissions_mt_co2e <= "0") #subset filter only negative values
 
   ##Replace empty source 2 values with source 1
@@ -451,7 +467,7 @@ produce_tplot <- shiny::reactive({
   
   #Plot time series
   Sect_time <- GHG_UK22 %>%
-    filter(ghg_grouped %in% input$select_GHG) %>%
+    filter(ghg_grouped %in% input$select_GHG & department %in% input$select_dept) %>%
     group_by(year, tes_sector) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = FALSE)) %>%
     rename("Sector" = "tes_sector") %>% #rename variable
@@ -490,7 +506,9 @@ DT::renderDataTable({
 
   #Create filtered dataframe with columns for positive and negative emissions
   GHG_table <- GHG_UK22 %>%
-    filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+    filter(year == input$select_Year & 
+             ghg_grouped %in% input$select_GHG &
+             department %in% input$select_dept) %>%
     mutate(pos_e = ifelse(emissions_mt_co2e >= 0, emissions_mt_co2e, 0)) %>%
     mutate(neg_e = ifelse(emissions_mt_co2e <= 0, emissions_mt_co2e, 0)) %>%
     rename("Sector" = "tes_sector") #%>% #rename variable
