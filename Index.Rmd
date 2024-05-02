@@ -119,13 +119,13 @@ if (!interactive()) {
 Sidebar {.sidebar}
 ======================================================================
 
-#### Filters
+#### Filters and Notes
 
 ```{r}
 
 #pickerInput via shinyWidgets to select multiple gases
 pickerInput("select_GHG", #input name
-            "GHG group", #display text
+            "Greenhouse Gases (GHGs):", #display text
             choices = c("CO2","CH4","N2O","NF3","HFCs","PFCs","SF6"), 
             multiple = TRUE,
             options = list(`actions-box` = TRUE), #creates buttons
@@ -136,13 +136,13 @@ pickerInput("select_GHG", #input name
 sliderInput("select_Year", #input name
             label = "Year:", #display text
             min = 1991, max = 2022, 
-            value = 2022, #initial value
+            value = c(2022), #initial value, use two numbers to make it possible to select a range
             step = 1,
             sep = "") #remove commas
 
 #pickerInput via shinyWidgets to select multiple government departments
 pickerInput("select_dept", #input name
-            "Department Ownership", #display text
+            "Department Ownership:", #display text
             choices = c("Defra","DESNZ","Dft"), 
             multiple = TRUE,
             options = list(`actions-box` = TRUE), #creates buttons
@@ -151,11 +151,12 @@ pickerInput("select_dept", #input name
 
 ```
 
-Select gases and year you would like to view to update the figures to the right.
+Select gases, year, and the UK department responsible for emissions sectors you would like to view to update the figures to the right. Note: negative emissions (removals) aren't associated with specific greenhouse gases. 
 
-Emissions are reported in megatonnes (Mt) of carbon dioxide (CO2) equivalents (eq.). 
+Emissions are reported in megatonnes (Mt) of carbon dioxide (CO2) equivalents (eq.) per year. They refer to domestic emissions only.
 
-Data from the [Department for Energy Security and Net Zero](https://www.data.gov.uk/dataset/9568363e-57e5-4c33-9e00-31dc528fcc5a/uk-greenhouse-gas-emissions-final).
+Data for these visuals is from the [Department for Energy Security and Net Zero (DESNZ)](https://www.data.gov.uk/dataset/9568363e-57e5-4c33-9e00-31dc528fcc5a/uk-greenhouse-gas-emissions-final).
+
 
 High-Level View Across All Sectors {data-orientation=rows}
 =======================================================================
@@ -237,14 +238,15 @@ produce_eplot <- shiny::reactive({
   
   ## Apply filters
   GHG_pos <- GHG_UK22 %>%
-    filter(year == input$select_Year & 
+    filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG &
              department %in% input$select_dept) %>%
     filter(emissions_mt_co2e >= "0") #subset filter only positive values
   
   #Run validate an input is selected
   validate(
-  need(input$select_GHG != "", "Insufficient data. Please change your selection on the left.")
+  need(input$select_GHG != "", "Insufficient data. Please change your selection on the left."),
+  need(input$select_dept != "", "Insufficient data. Please change your selection on the left.")
   )
   
   ##Separate out variables summaries
@@ -353,17 +355,23 @@ renderPlotly({produce_eplot()})
 
 Row
 -----------------------------------------------------------------------
-### Negative Emissions (Removals)
+### Negative Emissions (Removals) from the Land Use, Land Use Change, and Forestry (LULUCF) Sector
 
 ```{r}
 
 produce_rplot <- shiny::reactive({
   
+  #Run validate an input is selected
+  validate(
+  need(input$select_dept != "Defra", "Insufficient data. Please change your selection on the left.")
+  )
+  
   ## Removals data format for sunburst ####
   
   ##Apply filters
 GHG_neg <- GHG_UK22 %>%
-  filter(year == input$select_Year & department %in% input$select_dept) %>%
+  filter(year == input$select_Year & 
+           department %in% input$select_dept) %>%
   filter(emissions_mt_co2e <= "0") #subset filter only negative values
 
   ##Replace empty source 2 values with source 1
@@ -454,7 +462,8 @@ plotly::renderPlotly({produce_rplot()})
 
 ```
 
-### Time Series
+### Time Series: Emissions by Sector From 1990
+Zoom or select years directly on this graph.
 
 ```{r}
 
@@ -462,12 +471,15 @@ produce_tplot <- shiny::reactive({
   
   #Run validate an input is selected
   validate(
-  need(input$select_GHG != "", "Insufficient data. Please change your selection on the left.")
+  need(input$select_GHG != "", "Insufficient data. Please change your selection on the left."),
+  need(input$select_dept != "", "Insufficient data. Please change your selection on the left.")
   )
+
   
   #Plot time series
   Sect_time <- GHG_UK22 %>%
-    filter(ghg_grouped %in% input$select_GHG & department %in% input$select_dept) %>%
+    filter(ghg_grouped %in% input$select_GHG & 
+             department %in% input$select_dept) %>%
     group_by(year, tes_sector) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = FALSE)) %>%
     rename("Sector" = "tes_sector") %>% #rename variable
@@ -493,20 +505,27 @@ renderPlotly({produce_tplot()})
 
 ```
 
-Row
+Row {.tabset .tabset-fade}
 -----------------------------------------------------------------------
-### Summary Emissions Per Sector
+
+### Summary Emissions Across Sectors
 
 ```{r}
 
 DT::renderDataTable({
+  
+  #Run validate an input is selected
+  validate(
+  need(input$select_GHG != "", "Insufficient data. Please change your selection on the left."),
+  need(input$select_dept != "", "Insufficient data. Please change your selection on the left.")
+  )
 
 #Substitute LULUCF with full name
   GHG_UK22$tes_sector <- gsub('LULUCF','Land Use, Land Use Change, and Forestry', GHG_UK22$tes_sector)
 
   #Create filtered dataframe with columns for positive and negative emissions
   GHG_table <- GHG_UK22 %>%
-    filter(year == input$select_Year & 
+    filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG &
              department %in% input$select_dept) %>%
     mutate(pos_e = ifelse(emissions_mt_co2e >= 0, emissions_mt_co2e, 0)) %>%
@@ -560,6 +579,147 @@ DT::renderDataTable({
 })
 
 ```
+
+### Agriculture
+
+```{r}
+
+DT::renderDataTable({
+  
+  #Create filtered dataframe with columns for positive and negative emissions
+  ag_table <- GHG_UK22 %>%
+    filter(year == input$select_Year &
+             ghg_grouped %in% input$select_GHG) %>%
+    filter(tes_sector == "Agriculture") %>%
+    rename("Subsector" = "tes_subsector") %>% #rename variable
+    rename("Category" = "tes_category") %>% #rename variable
+    rename("Activity" = "activity") #rename variable
+  
+  #Summarize emissions
+  ag_summary <- ag_table %>%
+    group_by(Subsector, Category, Activity) %>%
+    summarize("Total Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
+  
+  #Round numbers
+  ag_summary$`Total Emissions` <- round(ag_summary$`Total Emissions`, 1)
+  
+  #Define number of rows to show
+  agsummary_rows <- nrow(ag_summary)
+  ag_summary <- head(ag_summary, n = agsummary_rows)
+  
+  #Call Datatable, options
+  DT::datatable(ag_summary, 
+                rownames = FALSE, #no row number labels
+                options = list(
+                               bPaginate = TRUE #more pages
+  ))
+  
+})
+
+```
+
+### LULUCF
+
+```{r}
+
+DT::renderDataTable({
+  
+  ##Replace empty source 2 values with source 1
+  GHG_UK22$source_2[GHG_UK22$source_2 == ""] <- NA #replace blanks with NA
+  GHG_UK22$source_2[is.na(GHG_UK22$source_2)] <- GHG_UK22$source_1[is.na(GHG_UK22$source_2)] 
+  
+  #Create filtered dataframe with columns for positive and negative emissions
+  LULUCF_table <- GHG_UK22 %>%
+    filter(year == input$select_Year &
+             ghg_grouped %in% input$select_GHG) %>%
+    filter(tes_sector == "LULUCF") %>%
+    mutate(pos_e = ifelse(emissions_mt_co2e >= 0, emissions_mt_co2e, 0)) %>%
+    mutate(neg_e = ifelse(emissions_mt_co2e <= 0, emissions_mt_co2e, 0)) %>%
+    rename("Subsector" = "tes_subsector") %>% #rename variable
+    rename("Category" = "tes_category") %>% #rename variable
+    rename("Source" = "source_2") #rename variable
+  
+  #Summarize positive emissions
+  LULUCF_postable <- LULUCF_table %>%
+    group_by(Subsector, Category, Source) %>%
+    summarize("Positive Emissions" = sum(pos_e, na.rm = TRUE))
+  
+  #Summarize negative emissions
+  LULUCF_negtable <- LULUCF_table %>%
+    group_by(Subsector, Category, Source) %>%
+    summarize("Negative Emissions" = sum(neg_e, na.rm = TRUE))
+  
+  #Combine positive and negative into one table
+  LULUCF_posneg <- inner_join(LULUCF_postable, LULUCF_negtable,
+                       by= c('Subsector','Category','Source')) 
+  
+  #Summarize net emissions
+  LULUCF_nettable <- LULUCF_table %>%
+    group_by(Subsector, Category, Source) %>%
+    summarize("Net Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
+  
+  #Combine into one summary table
+  LULUCF_summary <- inner_join(LULUCF_posneg, LULUCF_nettable,
+                       by= c('Subsector','Category','Source')) 
+  
+  #Round numbers
+  LULUCF_summary$`Positive Emissions` <- round(LULUCF_summary$`Positive Emissions`, 1)
+  LULUCF_summary$`Negative Emissions` <- round(LULUCF_summary$`Negative Emissions`, 1)
+  LULUCF_summary$`Net Emissions` <- round(LULUCF_summary$`Net Emissions`, 1)
+  
+  #Define number of rows to show
+  LULUCFsummary_rows <- nrow(LULUCF_summary)
+  LULUCF_summary <- head(LULUCF_summary, n = LULUCFsummary_rows)
+  
+  #Call Datatable, options
+  DT::datatable(LULUCF_summary, 
+                rownames = FALSE, #no row number labels
+                options = list(
+                               bPaginate = TRUE #more pages
+  ))
+  
+})
+
+```
+
+### Waste
+
+```{r}
+
+DT::renderDataTable({
+  
+  #Create filtered dataframe with columns for positive and negative emissions
+  w_table <- GHG_UK22 %>%
+    filter(year == input$select_Year &
+             ghg_grouped %in% input$select_GHG) %>%
+    filter(tes_sector == "Waste") %>%
+    rename("Category" = "tes_category") %>% #rename variable
+    rename("Activity" = "activity") #rename variable
+  
+  #Summarize emissions
+  w_summary <- w_table %>%
+    group_by(Category, Activity) %>%
+    summarize("Total Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
+  
+  #Round numbers
+  w_summary$`Total Emissions` <- round(w_summary$`Total Emissions`, 1)
+  
+  #Define number of rows to show
+  wsummary_rows <- nrow(w_summary)
+  w_summary <- head(w_summary, n = wsummary_rows)
+  
+  #Call Datatable, options
+  DT::datatable(w_summary, 
+                rownames = FALSE, #no row number labels
+                options = list(
+                               bPaginate = TRUE #more pages
+  ))
+  
+})
+
+```
+
+
 
 
 Defra Sector Graphs {data-orientation=rows}
@@ -982,150 +1142,6 @@ renderPlotly({produce_lulucf2()})
 
 ```
 
-
-Summary Data Tables {data-orientation=rows}
-=======================================================================
-
-Row {.tabset .tabset-fade}
--------------------------------------
-
-### Agriculture Emissions
-
-```{r}
-
-DT::renderDataTable({
-  
-  #Create filtered dataframe with columns for positive and negative emissions
-  ag_table <- GHG_UK22 %>%
-    filter(tes_sector == "Agriculture") %>%
-    filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-    rename("Subsector" = "tes_subsector") %>% #rename variable
-    rename("Category" = "tes_category") %>% #rename variable
-    rename("Activity" = "activity") #rename variable
-  
-  #Summarize emissions
-  ag_summary <- ag_table %>%
-    group_by(Subsector, Category, Activity) %>%
-    summarize("Total Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
-  
-  #Round numbers
-  ag_summary$`Total Emissions` <- round(ag_summary$`Total Emissions`, 1)
-  
-  #Define number of rows to show
-  agsummary_rows <- nrow(ag_summary)
-  ag_summary <- head(ag_summary, n = agsummary_rows)
-  
-  #Call Datatable, options
-  DT::datatable(ag_summary, 
-                rownames = FALSE, #no row number labels
-                options = list(
-                               bPaginate = TRUE #more pages
-  ))
-  
-})
-
-```
-
-
-### Waste Emissions
-
-```{r}
-
-DT::renderDataTable({
-  
-  #Create filtered dataframe with columns for positive and negative emissions
-  w_table <- GHG_UK22 %>%
-    filter(tes_sector == "Waste") %>%
-    filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-    rename("Category" = "tes_category") %>% #rename variable
-    rename("Activity" = "activity") #rename variable
-  
-  #Summarize emissions
-  w_summary <- w_table %>%
-    group_by(Category, Activity) %>%
-    summarize("Total Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
-  
-  #Round numbers
-  w_summary$`Total Emissions` <- round(w_summary$`Total Emissions`, 1)
-  
-  #Define number of rows to show
-  wsummary_rows <- nrow(w_summary)
-  w_summary <- head(w_summary, n = wsummary_rows)
-  
-  #Call Datatable, options
-  DT::datatable(w_summary, 
-                rownames = FALSE, #no row number labels
-                options = list(
-                               bPaginate = TRUE #more pages
-  ))
-  
-})
-
-```
-
-
-### LULUCF Emissions
-
-```{r}
-
-DT::renderDataTable({
-  
-  ##Replace empty source 2 values with source 1
-  GHG_UK22$source_2[GHG_UK22$source_2 == ""] <- NA #replace blanks with NA
-  GHG_UK22$source_2[is.na(GHG_UK22$source_2)] <- GHG_UK22$source_1[is.na(GHG_UK22$source_2)] 
-  
-  #Create filtered dataframe with columns for positive and negative emissions
-  LULUCF_table <- GHG_UK22 %>%
-    filter(tes_sector == "LULUCF") %>%
-    filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-    mutate(pos_e = ifelse(emissions_mt_co2e >= 0, emissions_mt_co2e, 0)) %>%
-    mutate(neg_e = ifelse(emissions_mt_co2e <= 0, emissions_mt_co2e, 0)) %>%
-    rename("Subsector" = "tes_subsector") %>% #rename variable
-    rename("Category" = "tes_category") %>% #rename variable
-    rename("Source" = "source_2") #rename variable
-  
-  #Summarize positive emissions
-  LULUCF_postable <- LULUCF_table %>%
-    group_by(Subsector, Category, Source) %>%
-    summarize("Positive Emissions" = sum(pos_e, na.rm = TRUE))
-  
-  #Summarize negative emissions
-  LULUCF_negtable <- LULUCF_table %>%
-    group_by(Subsector, Category, Source) %>%
-    summarize("Negative Emissions" = sum(neg_e, na.rm = TRUE))
-  
-  #Combine positive and negative into one table
-  LULUCF_posneg <- inner_join(LULUCF_postable, LULUCF_negtable,
-                       by= c('Subsector','Category','Source')) 
-  
-  #Summarize net emissions
-  LULUCF_nettable <- LULUCF_table %>%
-    group_by(Subsector, Category, Source) %>%
-    summarize("Net Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
-  
-  #Combine into one summary table
-  LULUCF_summary <- inner_join(LULUCF_posneg, LULUCF_nettable,
-                       by= c('Subsector','Category','Source')) 
-  
-  #Round numbers
-  LULUCF_summary$`Positive Emissions` <- round(LULUCF_summary$`Positive Emissions`, 1)
-  LULUCF_summary$`Negative Emissions` <- round(LULUCF_summary$`Negative Emissions`, 1)
-  LULUCF_summary$`Net Emissions` <- round(LULUCF_summary$`Net Emissions`, 1)
-  
-  #Define number of rows to show
-  LULUCFsummary_rows <- nrow(LULUCF_summary)
-  LULUCF_summary <- head(LULUCF_summary, n = LULUCFsummary_rows)
-  
-  #Call Datatable, options
-  DT::datatable(LULUCF_summary, 
-                rownames = FALSE, #no row number labels
-                options = list(
-                               bPaginate = TRUE #more pages
-  ))
-  
-})
-
-```
 
 About {data-orientation=rows}
 =======================================================================
