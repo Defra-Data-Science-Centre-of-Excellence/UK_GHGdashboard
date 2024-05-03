@@ -368,11 +368,6 @@ Row
 
 produce_rplot <- shiny::reactive({
   
-  #Run validate an input is selected
-  validate(
-  need(input$select_dept != "Defra", "Insufficient data. Please change your selection on the left.")
-  )
-  
   ## Removals data format for sunburst ####
   
   ##Apply filters
