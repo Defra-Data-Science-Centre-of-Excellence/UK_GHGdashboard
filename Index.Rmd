@@ -79,6 +79,14 @@ GHG_UK22 <- read_ods(
   )) %>%
   replace(is.na(.), "") #get rid of NA values, input blank
 
+  ##Replace empty source 2 values with source 1
+  GHG_UK22$source_2[GHG_UK22$source_2 == ""] <- NA #replace blanks with NA
+  GHG_UK22$source_2[is.na(GHG_UK22$source_2)] <- GHG_UK22$source_1[is.na(GHG_UK22$source_2)] 
+  
+  ##Replace empty source 3 values with source 2
+  GHG_UK22$source_3[GHG_UK22$source_3 == ""] <- NA #replace blanks with NA
+  GHG_UK22$source_3[is.na(GHG_UK22$source_3)] <- GHG_UK22$source_2[is.na(GHG_UK22$source_3)] 
+
 #Define custom color palette ####
 colors_bysize <- c(
   "#3CBD9C", #transport
@@ -622,10 +630,6 @@ DT::renderDataTable({
 
 DT::renderDataTable({
   
-  ##Replace empty source 2 values with source 1
-  GHG_UK22$source_2[GHG_UK22$source_2 == ""] <- NA #replace blanks with NA
-  GHG_UK22$source_2[is.na(GHG_UK22$source_2)] <- GHG_UK22$source_1[is.na(GHG_UK22$source_2)] 
-  
   #Create filtered dataframe with columns for positive and negative emissions
   LULUCF_table <- GHG_UK22 %>%
     filter(year == input$select_Year &
@@ -692,11 +696,11 @@ DT::renderDataTable({
              ghg_grouped %in% input$select_GHG) %>%
     filter(tes_sector == "Waste") %>%
     rename("Category" = "tes_category") %>% #rename variable
-    rename("Activity" = "activity") #rename variable
+    rename("Source" = "source_2") #rename variable
   
   #Summarize emissions
   w_summary <- w_table %>%
-    group_by(Category, Activity) %>%
+    group_by(Category, Source) %>%
     summarize("Total Emissions" = sum(emissions_mt_co2e, na.rm = TRUE))
   
   #Round numbers
@@ -784,6 +788,7 @@ agbar_int <- GHG_UK22 %>%
   add_trace(y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
   add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
   layout(yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
+         xaxis = list(title = ''),
          barmode = 'stack'
          )
 
@@ -817,7 +822,7 @@ agcat_int <- GHG_UK22 %>%
   layout(title = 'Agriculture Emissions by TES Subsector and Category',
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
          xaxis = list(title = '', tickangle = -90),
-         legend = list(x = 0.8, y = 1, orientation = 'v'),
+         #legend = list(x = 0.8, y = 1, orientation = 'v'),
          barmode = 'group'
          )
 
@@ -832,44 +837,71 @@ renderPlotly({produce_agcatplot()})
   
 ```
 
-#### Agricultural Combustion
+#### Livestock
 
 ```{r}
 
-produce_agcom <- shiny::reactive({
-  
-#Bar plot combustion, stacked by fuel type with Plotly
-agcom_int <- GHG_UK22 %>% 
+produce_agls <- shiny::reactive({
+
+#Bar plot livestock category, stacked by animal with Plotly
+agls_int <- GHG_UK22 %>% 
   filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Agricultural combustion") %>%
+  filter(tes_subsector == "Livestock") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-  group_by(category_1, activity) %>%
+  group_by(category_1, category_2) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
-  pivot_wider(names_from = activity, values_from=Temissions) %>%
+  pivot_wider(names_from = category_1, values_from=Temissions) %>%
   clean_names() %>%
   droplevels() %>%
-  plot_ly(x = ~category_1, type = 'bar', 
-          y = ~gas_oil, name = 'Gas oil', marker = list(color ="#C24841")) %>%
-  add_trace(y = ~petrol, name = 'Petrol', marker = list(color ="#A780BB")) %>%
-  add_trace(y = ~biogas, name = 'Biogas', marker = list(color ="#3CBD9C")) %>%
-  add_trace(y = ~burning_oil, name = 'Burning oil', marker = list(color ="#F0A7CA")) %>%
-  add_trace(y = ~fuel_oil, name = 'Fuel oil', marker = list(color ="#D38744")) %>%
-  add_trace(y = ~natural_gas, name = 'Natural gas', marker = list(color ="#5D7ED1")) %>%
-  add_trace(y = ~straw, name = 'Straw', marker = list(color ="#F0C954")) %>%
-  layout(title = 'Agricultural Combustion Emissions by Fuel Type',
+  plot_ly(x = ~category_2, type = 'bar', y = ~enteric_fermentation, name = 'Enteric fermentation', marker = list(color ="#F0A7CA")) %>%
+  add_trace(y = ~manure_management, name = 'Manure management', marker = list(color ="#96BC61")) %>%
+  layout(title = 'Agricultural Livestock Emissions by Animal and Category',
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
-         xaxis = list(title = ''),
+         xaxis = list(title = ''), 
          barmode = 'stack'
          )
-
+  
 #Plotly customization
-style(agcom_int, 
-hovertemplate="Source: %{x}
+style(agls_int, 
+hovertemplate="Livestock: %{x}
 Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
 
 })
 
-renderPlotly({produce_agcom()})
+renderPlotly({produce_agls()})
+
+```
+
+
+```{r}
+
+produce_agls2 <- shiny::reactive({
+  
+#Bar plot livestock animals, stacked by GHG with Plotly
+agls2_int <- GHG_UK22 %>% 
+  filter(tes_sector == "Agriculture") %>%
+  filter(tes_subsector == "Livestock") %>%
+  filter(year == input$select_Year) %>%
+  group_by(category_2, ghg) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  pivot_wider(names_from = ghg, values_from=Temissions) %>%
+  droplevels() %>%
+  plot_ly(x = ~category_2, type = 'bar', y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
+  add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
+  layout(title = 'Agricultural Livestock Emissions by Animal and GHG',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
+         xaxis = list(title = ''), 
+         barmode = 'stack'
+         )
+  
+#Plotly customization
+style(agls2_int, 
+hovertemplate="Livestock: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_agls2()})
 
 ```
 
@@ -878,14 +910,6 @@ renderPlotly({produce_agcom()})
 ```{r}
 
 produce_soil1 <- shiny::reactive({
-
-  ##Replace empty source 2 values with source 1
-  GHG_UK22$source_2[GHG_UK22$source_2 == ""] <- NA #replace blanks with NA
-  GHG_UK22$source_2[is.na(GHG_UK22$source_2)] <- GHG_UK22$source_1[is.na(GHG_UK22$source_2)] 
-  
-  ##Replace empty source 3 values with source 2
-  GHG_UK22$source_3[GHG_UK22$source_3 == ""] <- NA #replace blanks with NA
-  GHG_UK22$source_3[is.na(GHG_UK22$source_3)] <- GHG_UK22$source_2[is.na(GHG_UK22$source_3)] 
   
 #Bar plot data soil category and source
 agsoil_int <- GHG_UK22 %>% 
@@ -964,71 +988,44 @@ renderPlotly({produce_soil2()})
 
 ```
 
-#### Livestock
+#### Agricultural Combustion
 
 ```{r}
 
-produce_agls <- shiny::reactive({
-
-#Bar plot livestock category, stacked by animal with Plotly
-agls_int <- GHG_UK22 %>% 
+produce_agcom <- shiny::reactive({
+  
+#Bar plot combustion, stacked by fuel type with Plotly
+agcom_int <- GHG_UK22 %>% 
   filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Livestock") %>%
+  filter(tes_subsector == "Agricultural combustion") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-  group_by(category_1, category_2) %>%
+  group_by(category_1, activity) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
-  pivot_wider(names_from = category_1, values_from=Temissions) %>%
+  pivot_wider(names_from = activity, values_from=Temissions) %>%
   clean_names() %>%
   droplevels() %>%
-  plot_ly(x = ~category_2, type = 'bar', y = ~enteric_fermentation, name = 'Enteric fermentation', marker = list(color ="#F0A7CA")) %>%
-  add_trace(y = ~manure_management, name = 'Manure management', marker = list(color ="#96BC61")) %>%
-  layout(title = 'Agricultural Livestock Emissions by Category and Animal',
+  plot_ly(x = ~category_1, type = 'bar', 
+          y = ~gas_oil, name = 'Gas oil', marker = list(color ="#C24841")) %>%
+  add_trace(y = ~petrol, name = 'Petrol', marker = list(color ="#A780BB")) %>%
+  add_trace(y = ~biogas, name = 'Biogas', marker = list(color ="#3CBD9C")) %>%
+  add_trace(y = ~burning_oil, name = 'Burning oil', marker = list(color ="#F0A7CA")) %>%
+  add_trace(y = ~fuel_oil, name = 'Fuel oil', marker = list(color ="#D38744")) %>%
+  add_trace(y = ~natural_gas, name = 'Natural gas', marker = list(color ="#5D7ED1")) %>%
+  add_trace(y = ~straw, name = 'Straw', marker = list(color ="#F0C954")) %>%
+  layout(title = 'Agricultural Combustion Emissions by Fuel Type',
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
-         xaxis = list(title = ''), 
+         xaxis = list(title = ''),
          barmode = 'stack'
          )
-  
+
 #Plotly customization
-style(agls_int, 
-hovertemplate="Livestock: %{x}
+style(agcom_int, 
+hovertemplate="Source: %{x}
 Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
 
 })
 
-renderPlotly({produce_agls()})
-
-```
-
-
-```{r}
-
-produce_agls2 <- shiny::reactive({
-  
-#Bar plot livestock animals, stacked by GHG with Plotly
-agls2_int <- GHG_UK22 %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Livestock") %>%
-  filter(year == input$select_Year) %>%
-  group_by(category_2, ghg) %>%
-  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
-  pivot_wider(names_from = ghg, values_from=Temissions) %>%
-  droplevels() %>%
-  plot_ly(x = ~category_2, type = 'bar', y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
-  add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
-  layout(title = 'Agricultural Livestock Emissions by Animal',
-         yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
-         xaxis = list(title = ''), 
-         barmode = 'stack'
-         )
-  
-#Plotly customization
-style(agls2_int, 
-hovertemplate="Livestock: %{x}
-Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
-
-})
-
-renderPlotly({produce_agls2()})
+renderPlotly({produce_agcom()})
 
 ```
 
@@ -1067,7 +1064,7 @@ renderPlotly({produce_agother()})
 
 ### Waste
 
-#### Waste Emissions by Category and GHG
+#### Emissions by Category and GHG
 
 ```{r}
 
@@ -1085,7 +1082,7 @@ Waste_int <- GHG_UK22 %>%
   add_trace(y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
   add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
   layout(yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
-         xaxis = list(title = 'Category'), 
+         xaxis = list(title = ''), 
          barmode = 'stack'
          )
 
@@ -1098,6 +1095,210 @@ style(Waste_int, hovertemplate="Category: %{x}
 renderPlotly({produce_wplot()})
 
 ```
+
+#### Emissions by Category and Activity
+
+```{r}
+
+produce_wplot2 <- shiny::reactive({
+  
+#Bar plot by category, filled by subsector with Plotly
+Waste_int2 <- GHG_UK22 %>% 
+  filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
+  filter(tes_sector == "Waste") %>%
+  group_by(tes_category, activity) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  droplevels() %>%
+  plot_ly(x = ~tes_category, type = 'bar', y = ~Temissions, color = ~activity, colors = colors_bysize
+          ) %>%
+  layout(title = 'Waste Emissions by TES Category and Activity',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
+         xaxis = list(title = ''),
+         #legend = list(y=-0.2, orientation = 'h'),
+         barmode = 'stack'
+         )
+
+#Plotly customization
+style(Waste_int2, 
+hovertemplate="Category: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_wplot2()})
+  
+```
+
+#### Wastewater
+
+```{r}
+
+produce_wwplot <- shiny::reactive({
+  
+#Bar plot by category, filled by subsector with Plotly
+wwater <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
+  filter(tes_sector == "Waste") %>%
+  filter(tes_category == "Wastewater") %>%
+  group_by(source, ghg) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  pivot_wider(names_from = ghg, values_from=Temissions) %>%
+  droplevels() %>%
+  plot_ly(x = ~source, type = 'bar', y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
+  add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
+  layout(title = 'Wastewater Emissions by Source and GHG',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
+         xaxis = list(title = ''),
+         barmode = 'stack'
+         )
+
+#Plotly customization
+style(wwater, 
+hovertemplate="Category: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_wwplot()})
+  
+```
+
+#### Incineration
+
+```{r}
+
+produce_incplot <- shiny::reactive({
+  
+#Bar plot by category, filled by subsector with Plotly
+incin <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
+  filter(tes_sector == "Waste") %>%
+  filter(tes_category == "Incineration without energy recovery") %>%
+  group_by(source_2, ghg) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  pivot_wider(names_from = ghg, values_from=Temissions) %>%
+  droplevels() %>%
+  plot_ly(x = ~source_2, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
+  add_trace(y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
+  add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
+  layout(title = 'Incineration Emissions by Source and GHG',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
+         xaxis = list(title = ''),
+         barmode = 'stack'
+         )
+
+#Plotly customization
+style(incin, 
+hovertemplate="Category: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_incplot()})
+  
+```
+
+#### Composting
+
+```{r}
+
+produce_compostplot <- shiny::reactive({
+  
+#Bar plot by category, filled by subsector with Plotly
+compost <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
+  filter(tes_sector == "Waste") %>%
+  filter(tes_category == "Composting") %>%
+  group_by(source, ghg) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  pivot_wider(names_from = ghg, values_from=Temissions) %>%
+  droplevels() %>%
+  plot_ly(x = ~source, type = 'bar', y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
+  add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
+  layout(title = 'Composting Emissions by Source and GHG',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
+         xaxis = list(title = ''),
+         barmode = 'stack'
+         )
+
+#Plotly customization
+style(compost, 
+hovertemplate="Category: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_compostplot()})
+  
+```
+
+#### Anaerobic Digestion
+
+```{r}
+
+produce_ADplot <- shiny::reactive({
+  
+#Bar plot by category, filled by subsector with Plotly
+AD <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
+  filter(tes_sector == "Waste") %>%
+  filter(tes_category == "Anaerobic digestion") %>%
+  group_by(source_1, ghg) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  pivot_wider(names_from = ghg, values_from=Temissions) %>%
+  droplevels() %>%
+  plot_ly(x = ~source_1, type = 'bar', y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
+  layout(title = 'Emissions from Anaerobic digestion',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
+         xaxis = list(title = ''),
+         barmode = 'stack'
+         )
+
+#Plotly customization
+style(AD, 
+hovertemplate="Category: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_ADplot()})
+  
+```
+
+#### Accidental Fires
+
+```{r}
+
+produce_fireplot <- shiny::reactive({
+  
+#Bar plot by category, filled by subsector with Plotly
+fire <- GHG_UK22 %>% 
+  filter(year == input$select_Year) %>%
+  filter(tes_sector == "Waste") %>%
+  filter(tes_category == "Accidental fires") %>%
+  group_by(source_2, ghg) %>%
+  summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
+  pivot_wider(names_from = ghg, values_from=Temissions) %>%
+  droplevels() %>%
+  plot_ly(x = ~source_2, type = 'bar', y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
+  layout(title = 'Emissions from Accidental Fires',
+         yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
+         xaxis = list(title = ''),
+         barmode = 'stack'
+         )
+
+#Plotly customization
+style(fire, 
+hovertemplate="Category: %{x}
+Emissions: %{y:,.4r} Mt CO2 eq.") #define what hover label says, round x values, round y values to 4 sig. figs
+
+})
+
+renderPlotly({produce_fireplot()})
+  
+```
+
+
 
 ### Land Use, Land Use Change, and Forestry
 
@@ -1147,16 +1348,16 @@ LULUCFcat_int <- GHG_UK22 %>%
   group_by(tes_subsector, tes_category) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_category, type = 'bar', y = ~Temissions, color = ~tes_subsector, 
-          colors = c("#C24841","#D38744","#96BC61", "#F0C954","#5D7ED1","#3CBD9C", "#F0A7CA"),
+  plot_ly(x = ~tes_subsector, type = 'bar', y = ~Temissions, color = ~tes_category, 
+          colors = colors_bysize,
           marker = list(
             width = 1.5
                         )) %>%
   layout(title = 'LULUCF Sources and Sinks by TES Subsector and Category',
          yaxis = list(title = 'Emissions/Removals (Mt CO2 eq.)'),
          xaxis = list(title = '', tickangle = -90),
-         legend = list(x = 0.75, y = 0.4, orientation = 'v'),
-         barmode = 'group'
+         #legend = list(orientation = 'h'),
+         barmode = 'stack'
          )
 
 
