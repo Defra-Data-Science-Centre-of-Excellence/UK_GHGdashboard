@@ -1394,12 +1394,15 @@ The goals of this dashboard include:
    
    
 This dashboard tool was developed by [Kaydee Barker](https://kaydeebarker.com/) for the [Department
-for Environment Food & Rural Affairs (Defra)](https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs), 
-building on previous and ongoing inventory visualization projects as pioneered by Anne Jones and others, including the recent [Net Zero Inventory Mapping tool](https://jacobbillingham.shinyapps.io/CarbonVisualisations/) that was developed by Jacob Billingham in collaboration with Anne Jones, 
-a [Net Zero Systems Tool](https://gateway.zscloud.net/auD?origurl=https%3A%2F%2Fwebapps%2ecbas%2ecloud%2fNZST%2f&_ordtok=7WZ3WVh3BhF6qHkD3HPDHs6mGF) being developed by DESNZ, 
-and an Agriculture-specific inventory exploration tool being developed at [ADAS](https://adas.co.uk/). 
-Useful input and ideas for this tool came from across Defra, and it is my hope that the tool continues 
-to evolve into ever more useful versions that assist Defra and partners in their analyses and goals as we aim for a Net Zero future.
+for Environment Food & Rural Affairs (Defra)](https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs). 
+
+Acknowledgements:
+Anne Jones pioneered some visualizations of the UK's GHG Inventory in 2019 and shared valuable insights for this updated visualization. 
+Jacob Billingham developed a [Net Zero Inventory Mapping tool](https://jacobbillingham.shinyapps.io/CarbonVisualisations/) in collaboration with Anne Jones, and provided valuable insights, feedback, and coding resources from that project.
+Other insightful tools in development include the [Net Zero Systems Tool](https://gateway.zscloud.net/auD?origurl=https%3A%2F%2Fwebapps%2ecbas%2ecloud%2fNZST%2f&_ordtok=7WZ3WVh3BhF6qHkD3HPDHs6mGF) being developed by DESNZ and an Agriculture-specific inventory exploration tool being developed at [ADAS](https://adas.co.uk/).
+Devon Barker provided valuable feedback and pointed me to some of the resources used in the development of the dashboard.
+Andrew Clark and Harley Stoddart recruited me for this project and provided support throughout its creation.
+Useful input and ideas for the tool came from across Defra, and it is my hope that it continues to evolve into ever more useful versions that assist Defra and partners in their analyses and goals as we aim for a Net Zero future.
 
 
    
