@@ -38,14 +38,14 @@ library(DT) #reactive datatables
 ```{r global, include=FALSE}
 
 ##Map loop to download UK 2022 data from the UK Department for Energy Security and Net Zero
-downloaded <- file.exists("UKGHG_2022.ods") #checks if file is downloaded in working directory
+downloaded <- file.exists("UKGHG.ods") #checks if file is downloaded in working directory
 if(downloaded != T){ #if downloaded is not true
   map2("https://assets.publishing.service.gov.uk/media/65c0d54663a23d000dc821ca/final-greenhouse-gas-emissions-2022-by-source-dataset.ods", #update this link when new data available
        "UKGHG_2022.ods", download.file)} #else{print('data downloaded')} #name and download or print
 
 ##Read in ods file
-GHG_UK22 <- read_ods(
-  path = "UKGHG_2022.ods",
+GHG_UK <- read_ods(
+  path = "UKGHG.ods",
   sheet = 1, #define tab/sheet to read
   col_names = TRUE, #use header row for column names
   col_types = NULL, #guess data types
@@ -80,12 +80,12 @@ GHG_UK22 <- read_ods(
   replace(is.na(.), "") #get rid of NA values, input blank
 
   ##Replace empty source 2 values with source 1
-  GHG_UK22$source_2[GHG_UK22$source_2 == ""] <- NA #replace blanks with NA
-  GHG_UK22$source_2[is.na(GHG_UK22$source_2)] <- GHG_UK22$source_1[is.na(GHG_UK22$source_2)] 
+  GHG_UK$source_2[GHG_UK$source_2 == ""] <- NA #replace blanks with NA
+  GHG_UK$source_2[is.na(GHG_UK$source_2)] <- GHG_UK$source_1[is.na(GHG_UK$source_2)] 
   
   ##Replace empty source 3 values with source 2
-  GHG_UK22$source_3[GHG_UK22$source_3 == ""] <- NA #replace blanks with NA
-  GHG_UK22$source_3[is.na(GHG_UK22$source_3)] <- GHG_UK22$source_2[is.na(GHG_UK22$source_3)] 
+  GHG_UK$source_3[GHG_UK$source_3 == ""] <- NA #replace blanks with NA
+  GHG_UK$source_3[is.na(GHG_UK$source_3)] <- GHG_UK$source_2[is.na(GHG_UK$source_3)] 
 
 #Define custom color palette ####
 colors_bysize <- c(
@@ -177,7 +177,7 @@ Row
 renderValueBox({
 
 #Calculate total positive emissions
-emissions <- GHG_UK22 %>%
+emissions <- GHG_UK %>%
   filter(emissions_mt_co2e >= "0") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG & department %in% input$select_dept) %>%
   summarize(sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -198,7 +198,7 @@ valueBox(emissions,
 renderValueBox({
   
 #Calculate total negative emissions
-removals <- GHG_UK22 %>%
+removals <- GHG_UK %>%
   filter(emissions_mt_co2e <= "0") %>%
   filter(year == input$select_Year & 
            ghg_grouped %in% input$select_GHG & 
@@ -220,7 +220,7 @@ valueBox(removals,
 renderValueBox({
   
 #Calculate total emissions
-net <- GHG_UK22 %>%
+net <- GHG_UK %>%
   filter(year == input$select_Year & 
            ghg_grouped %in% input$select_GHG & 
            department %in% input$select_dept) %>%
@@ -245,7 +245,7 @@ produce_eplot <- shiny::reactive({
   ## Emissions data format for sunburst ####
   
   ## Apply filters
-  GHG_pos <- GHG_UK22 %>%
+  GHG_pos <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG &
              department %in% input$select_dept) %>%
@@ -371,7 +371,7 @@ produce_rplot <- shiny::reactive({
   ## Removals data format for sunburst ####
   
   ##Apply filters
-GHG_neg <- GHG_UK22 %>%
+GHG_neg <- GHG_UK %>%
   filter(year == input$select_Year & 
            department %in% input$select_dept) %>%
   filter(emissions_mt_co2e <= "0") #subset filter only negative values
@@ -478,7 +478,7 @@ produce_tplot <- shiny::reactive({
 
   
   #Plot time series
-  Sect_time <- GHG_UK22 %>%
+  Sect_time <- GHG_UK %>%
     filter(ghg_grouped %in% input$select_GHG & 
              department %in% input$select_dept) %>%
     group_by(year, tes_sector) %>%
@@ -522,10 +522,10 @@ DT::renderDataTable({
   )
 
 #Substitute LULUCF with full name
-  GHG_UK22$tes_sector <- gsub('LULUCF','Land Use, Land Use Change, and Forestry', GHG_UK22$tes_sector)
+  GHG_UK$tes_sector <- gsub('LULUCF','Land Use, Land Use Change, and Forestry', GHG_UK$tes_sector)
 
   #Create filtered dataframe with columns for positive and negative emissions
-  GHG_table <- GHG_UK22 %>%
+  GHG_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG &
              department %in% input$select_dept) %>%
@@ -588,7 +588,7 @@ DT::renderDataTable({
 DT::renderDataTable({
   
   #Create filtered dataframe with columns for positive and negative emissions
-  ag_table <- GHG_UK22 %>%
+  ag_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
     filter(tes_sector == "Agriculture") %>%
@@ -626,7 +626,7 @@ DT::renderDataTable({
 DT::renderDataTable({
   
   #Create filtered dataframe with columns for positive and negative emissions
-  LULUCF_table <- GHG_UK22 %>%
+  LULUCF_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
     filter(tes_sector == "LULUCF") %>%
@@ -686,7 +686,7 @@ DT::renderDataTable({
 DT::renderDataTable({
   
   #Create filtered dataframe with columns for positive and negative emissions
-  w_table <- GHG_UK22 %>%
+  w_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
     filter(tes_sector == "Waste") %>%
@@ -726,7 +726,7 @@ Row
 produce_deptplot <- shiny::reactive({
 
 #Bar plot by subsector, stacked by GHG with Plotly
-deptplot <- GHG_UK22 %>% 
+deptplot <- GHG_UK %>% 
   filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
   group_by(department, tes_sector) %>%
@@ -772,7 +772,7 @@ For the bar graphs below, hover your pointer over bars to view details, and clic
 produce_agplot <- shiny::reactive({
 
 #Bar plot by subsector, stacked by GHG with Plotly
-agbar_int <- GHG_UK22 %>% 
+agbar_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(year == input$select_Year) %>%
   group_by(tes_subsector, ghg, ghg_grouped) %>%
@@ -805,7 +805,7 @@ renderPlotly({produce_agplot()})
 produce_agcatplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-agcat_int <- GHG_UK22 %>% 
+agcat_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   group_by(tes_subsector, tes_category) %>%
@@ -839,7 +839,7 @@ renderPlotly({produce_agcatplot()})
 produce_agls <- shiny::reactive({
 
 #Bar plot livestock category, stacked by animal with Plotly
-agls_int <- GHG_UK22 %>% 
+agls_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Livestock") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
@@ -873,7 +873,7 @@ renderPlotly({produce_agls()})
 produce_agls2 <- shiny::reactive({
   
 #Bar plot livestock animals, stacked by GHG with Plotly
-agls2_int <- GHG_UK22 %>% 
+agls2_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Livestock") %>%
   filter(year == input$select_Year) %>%
@@ -907,7 +907,7 @@ renderPlotly({produce_agls2()})
 produce_soil1 <- shiny::reactive({
   
 #Bar plot data soil category and source
-agsoil_int <- GHG_UK22 %>% 
+agsoil_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Agricultural soils") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
@@ -956,7 +956,7 @@ renderPlotly({produce_soil1()})
 produce_soil2 <- shiny::reactive({
 
 #Bar plot soil, stacked by GHG with Plotly
-agsoil2_int <- GHG_UK22 %>% 
+agsoil2_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Agricultural soils") %>%
   filter(year == input$select_Year) %>%
@@ -990,7 +990,7 @@ renderPlotly({produce_soil2()})
 produce_agcom <- shiny::reactive({
   
 #Bar plot combustion, stacked by fuel type with Plotly
-agcom_int <- GHG_UK22 %>% 
+agcom_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Agricultural combustion") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
@@ -1031,7 +1031,7 @@ renderPlotly({produce_agcom()})
 produce_agother <- shiny::reactive({
   
 #Bar plot other ag, stacked by GHG
-agother_int <- GHG_UK22 %>% 
+agother_int <- GHG_UK %>% 
   filter(tes_sector == "Agriculture") %>%
   filter(tes_subsector == "Other agriculture") %>%
   filter(year == input$select_Year) %>%
@@ -1066,7 +1066,7 @@ renderPlotly({produce_agother()})
 produce_wplot <- shiny::reactive({
   
   #Bar plot by subsector, stacked by GHG with Plotly
-Waste_int <- GHG_UK22 %>% 
+Waste_int <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   group_by(tes_category, ghg, ghg_grouped) %>%
@@ -1098,7 +1098,7 @@ renderPlotly({produce_wplot()})
 produce_wplot2 <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-Waste_int2 <- GHG_UK22 %>% 
+Waste_int2 <- GHG_UK %>% 
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   filter(tes_sector == "Waste") %>%
   group_by(tes_category, activity) %>%
@@ -1131,7 +1131,7 @@ renderPlotly({produce_wplot2()})
 produce_wwplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-wwater <- GHG_UK22 %>% 
+wwater <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   filter(tes_category == "Wastewater") %>%
@@ -1165,7 +1165,7 @@ renderPlotly({produce_wwplot()})
 produce_incplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-incin <- GHG_UK22 %>% 
+incin <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   filter(tes_category == "Incineration without energy recovery") %>%
@@ -1200,7 +1200,7 @@ renderPlotly({produce_incplot()})
 produce_compostplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-compost <- GHG_UK22 %>% 
+compost <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   filter(tes_category == "Composting") %>%
@@ -1234,7 +1234,7 @@ renderPlotly({produce_compostplot()})
 produce_ADplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-AD <- GHG_UK22 %>% 
+AD <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   filter(tes_category == "Anaerobic digestion") %>%
@@ -1267,7 +1267,7 @@ renderPlotly({produce_ADplot()})
 produce_fireplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
-fire <- GHG_UK22 %>% 
+fire <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "Waste") %>%
   filter(tes_category == "Accidental fires") %>%
@@ -1305,7 +1305,7 @@ renderPlotly({produce_fireplot()})
 produce_lulucf <- shiny::reactive({
   
   #Bar plot by subsector, stacked by GHG with Plotly
-LULUCF_int <- GHG_UK22 %>% 
+LULUCF_int <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
   filter(tes_sector == "LULUCF") %>%
   group_by(tes_subsector, ghg, ghg_grouped) %>%
@@ -1337,7 +1337,7 @@ renderPlotly({produce_lulucf()})
 produce_lulucf2 <- shiny::reactive({
   
   #Bar plot by category, filled by subsector with Plotly
-LULUCFcat_int <- GHG_UK22 %>% 
+LULUCFcat_int <- GHG_UK %>% 
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   filter(tes_sector == "LULUCF") %>%
   group_by(tes_subsector, tes_category) %>%
