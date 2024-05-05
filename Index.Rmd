@@ -1385,7 +1385,15 @@ The goals of this dashboard include:
 
 * Provide useful ready-to-go visuals for presentations, meetings, and internal documents   
 
+Some important notes about the data:
 
+* Emissions are calculated on an "end user" basis, meaning that emissions are allocated to, for example, a house that receives gas heating rather than the powerplant. You can read more about that in the [Annex 1 document associated with the data](https://assets.publishing.service.gov.uk/media/65ff120af1d3a031c432ac6d/annex-1990-2022-uk-ghg-emissions-final-figures-by-end-user-sector-fuel-uncertainties-estimates.pdf).
+
+* It only includes domestic emissions, and does not include emissions with end users outside the UK. Notably, this means that exported fuels and electricity are excluded, as well as emissions from international aviation.
+
+* It also does not include what are called "embedded emissions" from imported goods, which are all of the emissions associated with production and transport to the UK. Only the transport associated with bringing goods from the country's entry point to the end user are reported here. These have historically accounted for >230 Mt CO2 eq. (peaking at 378 in 2007). They are recorded in a separate ["Carbon footprint for the UK"](https://www.gov.uk/government/statistics/uks-carbon-footprint).
+
+* Emissions are based primarily on modelling calculations rather than direct measurements, and are therefore subject to a margin of error. You can find out more about how the data are calculated and calculations improved in the [National Atmospheric Emissions Inventory (NAEI) reports](https://naei.beis.gov.uk/reports/index).
    
    
 This dashboard tool was developed by [Kaydee Barker](https://kaydeebarker.com/) for the [Department
