@@ -38,10 +38,18 @@ library(DT) #reactive datatables
 ```{r global, include=FALSE}
 
 ##Map loop to download UK 2022 data from the UK Department for Energy Security and Net Zero
+# downloaded <- file.exists("UKGHG.ods") #checks if file is downloaded in working directory
+# if(downloaded != T){ #if downloaded is not true
+#   map2("https://assets.publishing.service.gov.uk/media/65c0d54663a23d000dc821ca/final-greenhouse-gas-emissions-2022-by-source-dataset.ods", #update this link when new data available
+#        
+#        "UKGHG.ods", download.file,quiet = TRUE, mode = "wb" )} #else{print('data downloaded')} #name and download or print
+
 downloaded <- file.exists("UKGHG.ods") #checks if file is downloaded in working directory
 if(downloaded != T){ #if downloaded is not true
-  map2("https://assets.publishing.service.gov.uk/media/65c0d54663a23d000dc821ca/final-greenhouse-gas-emissions-2022-by-source-dataset.ods", #update this link when new data available
-       "UKGHG_2022.ods", download.file)} #else{print('data downloaded')} #name and download or print
+  map2("https://assets.publishing.service.gov.uk/media/67a3117e039d059a1fe5fe9c/final-greenhouse-gas-emissions-2023-by-source-dataset.ods", #update this link when new data available
+       
+       "UKGHG.ods", download.file,quiet = TRUE, mode = "wb" )} #else{print('data downloaded')} #name and download or print
+
 
 ##Read in ods file
 GHG_UK <- read_ods(
@@ -60,7 +68,7 @@ GHG_UK <- read_ods(
                        names = c("source_1", "source_2", "source_3"), #name new columns
                        too_few = "align_start", too_many = "merge", #what to do with fewer or more than 3
                        cols_remove = FALSE) %>% #keep original column
-  separate_wider_delim(tes_category, delim = " - ", #separate category, define delimiter as " - "
+  separate_wider_delim(territorial_emissions_statistics_sector, delim = " - ", #separate category, define delimiter as " - "
                        names = c("category_1", "category_2"), #name new columns
                        too_few = "align_start", too_many = "merge", #what to do with fewer or more than 2
                        cols_remove = FALSE) %>% #keep original column
@@ -68,14 +76,15 @@ GHG_UK <- read_ods(
                        names = c("activity_1", "activity_2"), #name new columns
                        too_few = "align_start", too_many = "merge", #what to do with fewer or more than 2
                        cols_remove = FALSE) %>% #keep original column
-  mutate(department = case_when(tes_sector == "Agriculture" ~ "Defra",
-                                tes_sector == "LULUCF" ~ "Defra",
-                                tes_sector == "Waste" ~ "Defra",
-                                tes_sector == "Buildings and product uses" ~"DESNZ",
-                                tes_sector == "Electricity supply" ~"DESNZ",
-                                tes_sector == "Fuel supply" ~"DESNZ",
-                                tes_sector == "Industry" ~"DESNZ",
-                                tes_sector == "Domestic transport" ~"Dft"
+  mutate(department = case_when(territorial_emissions_statistics_sector == "Agriculture" ~ "Defra",
+                                territorial_emissions_statistics_sector == "LULUCF" ~ "Defra",
+                                territorial_emissions_statistics_sector == "Waste" ~ "Defra",
+                                territorial_emissions_statistics_sector == "Buildings and product uses" ~"DESNZ",
+                                territorial_emissions_statistics_sector == "Electricity supply" ~"DESNZ",
+                                territorial_emissions_statistics_sector == "Fuel supply" ~"DESNZ",
+                                territorial_emissions_statistics_sector == "Industry" ~"DESNZ",
+                                territorial_emissions_statistics_sector == "Domestic transport" ~"Dft",
+                                territorial_emissions_statistics_sector == "International aviation and shipping" ~"Dft"
   )) %>%
   replace(is.na(.), "") #get rid of NA values, input blank
 
@@ -86,6 +95,10 @@ GHG_UK <- read_ods(
   ##Replace empty source 3 values with source 2
   GHG_UK$source_3[GHG_UK$source_3 == ""] <- NA #replace blanks with NA
   GHG_UK$source_3[is.na(GHG_UK$source_3)] <- GHG_UK$source_2[is.na(GHG_UK$source_3)] 
+  
+  ##Remove lines which are not included in national totals
+  GHG_UK <- subset(GHG_UK, !(included_in_national_total %in% "No"))
+  
 
 #Define custom color palette ####
 colors_bysize <- c(
@@ -143,8 +156,8 @@ pickerInput("select_GHG", #input name
 #sliderInput for years
 sliderInput("select_Year", #input name
             label = "Year:", #display text
-            min = 1991, max = 2022, 
-            value = c(2022), #initial value, use two numbers to make it possible to select a range
+            min = 1990, max = 2023, 
+            value = c(2023), #initial value, use two numbers to make it possible to select a range
             step = 1,
             sep = "") #remove commas
 
@@ -161,7 +174,7 @@ pickerInput("select_dept", #input name
 
 Select gases, year, and the UK department responsible for emissions sectors you would like to view to update the figures to the right. Note: negative emissions (removals) aren't associated with specific greenhouse gases. 
 
-Emissions are reported in megatonnes (Mt) of carbon dioxide (CO2) equivalents (eq.) per year. They refer to domestic emissions only.
+Emissions are reported in megatonnes (Mt) of carbon dioxide (CO2) equivalents (eq.) per year. They refer to domestic emissions only, and exclude emissions which are not accounted for in national totals (International aviation and shipping).
 
 Data for these visuals is from the [Department for Energy Security and Net Zero (DESNZ)](https://www.data.gov.uk/dataset/9568363e-57e5-4c33-9e00-31dc528fcc5a/uk-greenhouse-gas-emissions-final).
 
@@ -175,14 +188,13 @@ Row
 ```{r}
 
 renderValueBox({
-
+browser()
 #Calculate total positive emissions
 emissions <- GHG_UK %>%
   filter(emissions_mt_co2e >= "0") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG & department %in% input$select_dept) %>%
   summarize(sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   round(., 1) #1 digit after decimal
-
 valueBox(emissions, 
          icon = "ion-fireball", color = "#C24841")
 
@@ -259,41 +271,41 @@ produce_eplot <- shiny::reactive({
   
   ##Separate out variables summaries
   sectors <- GHG_pos %>%
-    group_by(tes_sector) %>%
+    group_by(territorial_emissions_statistics_sector) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE))
   
   subsectors <- GHG_pos %>%
-    group_by(tes_sector, tes_subsector) %>%
+    group_by(territorial_emissions_statistics_sector, territorial_emissions_statistics_subsector) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE))
   
   cat_2 <- GHG_pos %>%
     filter(category_2 != "") %>%
-    group_by(tes_sector, tes_subsector, category_2) %>%
+    group_by(territorial_emissions_statistics_sector, territorial_emissions_statistics_subsector, category_2) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
-    unite('parents', c(tes_sector, tes_subsector), remove = TRUE, sep = " - ") #combine higher categories into parents
+    unite('parents', c(territorial_emissions_statistics_sector, territorial_emissions_statistics_subsector), remove = TRUE, sep = " - ") #combine higher categories into parents
   
   cat_1 <- GHG_pos %>%
-    group_by(tes_sector, tes_subsector, category_2, category_1) %>%
+    group_by(territorial_emissions_statistics_sector, territorial_emissions_statistics_subsector, category_2, category_1) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
     mutate(parents = case_when(
-      category_2 != "" ~str_c(tes_sector,tes_subsector,category_2, sep = " - "),
-      category_2 == "" ~str_c(tes_sector,tes_subsector, sep = " - ")))
+      category_2 != "" ~str_c(territorial_emissions_statistics_sector,territorial_emissions_statistics_subsector,category_2, sep = " - "),
+      category_2 == "" ~str_c(territorial_emissions_statistics_sector,territorial_emissions_statistics_subsector, sep = " - ")))
   
   act_1 <- GHG_pos %>%
-    group_by(tes_sector, tes_subsector, category_2, category_1, activity_1) %>%
+    group_by(territorial_emissions_statistics_sector, territorial_emissions_statistics_subsector, category_2, category_1, activity_1) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
     mutate(parents = case_when(
-      category_2 != "" ~str_c(tes_sector,tes_subsector,category_2, category_1, sep = " - "),
-      category_2 == "" ~str_c(tes_sector,tes_subsector, category_1, sep = " - ")
+      category_2 != "" ~str_c(territorial_emissions_statistics_sector,territorial_emissions_statistics_subsector,category_2, category_1, sep = " - "),
+      category_2 == "" ~str_c(territorial_emissions_statistics_sector,territorial_emissions_statistics_subsector, category_1, sep = " - ")
     ))
   
   act_2 <- GHG_pos %>%
     filter(activity_2 != "") %>%
-    group_by(tes_sector, tes_subsector, category_2, category_1, activity_1, activity_2) %>%
+    group_by(territorial_emissions_statistics_sector, territorial_emissions_statistics_subsector, category_2, category_1, activity_1, activity_2) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
     mutate(parents = case_when(
-      category_2 != "" ~str_c(tes_sector,tes_subsector,category_2, category_1, activity_1, sep = " - "),
-      category_2 == "" ~str_c(tes_sector,tes_subsector, category_1, activity_1, sep = " - ")
+      category_2 != "" ~str_c(territorial_emissions_statistics_sector,territorial_emissions_statistics_subsector,category_2, category_1, activity_1, sep = " - "),
+      category_2 == "" ~str_c(territorial_emissions_statistics_sector,territorial_emissions_statistics_subsector, category_1, activity_1, sep = " - ")
     ))
   
   
@@ -304,7 +316,7 @@ produce_eplot <- shiny::reactive({
   
   GHGsb1 <- data.frame(
     parents = c(rep("", root)),
-    labels =c(paste0(sectors$tes_sector)),
+    labels =c(paste0(sectors$territorial_emissions_statistics_sector)),
     values =as.numeric(c(paste0(sectors$Temissions)))
   )
   
@@ -314,9 +326,9 @@ produce_eplot <- shiny::reactive({
   
   ##Now paste together distinct instances into dataframe with hierarchical structure - add on
   GHGsb2 <- data.frame(
-    parents =c(paste0(subsectors$tes_sector), paste0(cat_2$parents), paste0(cat_1$parents), 
+    parents =c(paste0(subsectors$territorial_emissions_statistics_sector), paste0(cat_2$parents), paste0(cat_1$parents), 
                paste0(act_1$parents), paste0(act_2$parents)),
-    labels =c(paste0(subsectors$tes_subsector), paste0(cat_2$category_2), paste0(cat_1$category_1), 
+    labels =c(paste0(subsectors$territorial_emissions_statistics_subsector), paste0(cat_2$category_2), paste0(cat_1$category_1), 
               paste0(act_1$activity_1), paste0(act_2$activity_2)),
     values =as.numeric(c(paste0(subsectors$Temissions), paste0(cat_2$Temissions), paste0(cat_1$Temissions), paste0(act_1$Temissions), paste0(act_2$Temissions)))
   )
@@ -382,23 +394,23 @@ GHG_neg <- GHG_UK %>%
   
   ##Separate out variables summaries - all GHGs combined
   subsectors_neg <- GHG_neg %>%
-    group_by(tes_subsector) %>%
+    group_by(territorial_emissions_statistics_subsector) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE))
   
   cat_neg <- GHG_neg %>%
-    group_by(tes_subsector, tes_category) %>%
+    group_by(territorial_emissions_statistics_subsector, territorial_emissions_statistics_category) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) 
   
   src_neg <- GHG_neg %>%
-    group_by(tes_subsector, tes_category, source_2) %>%
+    group_by(territorial_emissions_statistics_subsector, territorial_emissions_statistics_category, source_2) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
-    unite('parents', c(tes_subsector, tes_category), remove = TRUE, sep = " - ") #combine higher categories into parents
+    unite('parents', c(territorial_emissions_statistics_subsector, territorial_emissions_statistics_category), remove = TRUE, sep = " - ") #combine higher categories into parents
   
   
   ##Now paste together distinct instances into dataframe with hierarchical structure - start simple, set root
   GHGsb1_neg <- data.frame(
     parents =c(rep("", 6)),
-    labels =c(paste0(subsectors_neg$tes_subsector)),
+    labels =c(paste0(subsectors_neg$territorial_emissions_statistics_subsector)),
     values =as.numeric(c(paste0(subsectors_neg$Temissions)))
   )
   
@@ -408,8 +420,8 @@ GHG_neg <- GHG_UK %>%
   
   ##Now paste together distinct instances into dataframe with hierarchical structure - add on
   GHGsb2_neg <- data.frame(
-    parents =c(paste0(cat_neg$tes_subsector), paste0(src_neg$parents)),
-    labels =c(paste0(cat_neg$tes_category), paste0(src_neg$source_2)),
+    parents =c(paste0(cat_neg$territorial_emissions_statistics_subsector), paste0(src_neg$parents)),
+    labels =c(paste0(cat_neg$territorial_emissions_statistics_category), paste0(src_neg$source_2)),
     values =as.numeric(c(paste0(cat_neg$Temissions), paste0(src_neg$Temissions)))
   )
   
@@ -481,9 +493,9 @@ produce_tplot <- shiny::reactive({
   Sect_time <- GHG_UK %>%
     filter(ghg_grouped %in% input$select_GHG & 
              department %in% input$select_dept) %>%
-    group_by(year, tes_sector) %>%
+    group_by(year, territorial_emissions_statistics_sector) %>%
     summarize(Temissions = sum(emissions_mt_co2e, na.rm = FALSE)) %>%
-    rename("Sector" = "tes_sector") %>% #rename variable
+    rename("Sector" = "territorial_emissions_statistics_sector") %>% #rename variable
     ungroup() %>%
   plot_ly(x= ~year, y= ~Temissions, group= ~Sector, color= ~Sector, 
           type="scatter", mode= "lines", colors = colors_alphabetically
@@ -522,7 +534,7 @@ DT::renderDataTable({
   )
 
 #Substitute LULUCF with full name
-  GHG_UK$tes_sector <- gsub('LULUCF','Land Use, Land Use Change, and Forestry', GHG_UK$tes_sector)
+  GHG_UK$territorial_emissions_statistics_sector <- gsub('LULUCF','Land Use, Land Use Change, and Forestry', GHG_UK$territorial_emissions_statistics_sector)
 
   #Create filtered dataframe with columns for positive and negative emissions
   GHG_table <- GHG_UK %>%
@@ -531,8 +543,8 @@ DT::renderDataTable({
              department %in% input$select_dept) %>%
     mutate(pos_e = ifelse(emissions_mt_co2e >= 0, emissions_mt_co2e, 0)) %>%
     mutate(neg_e = ifelse(emissions_mt_co2e <= 0, emissions_mt_co2e, 0)) %>%
-    rename("Sector" = "tes_sector") #%>% #rename variable
-    #rename("Subsector" = "tes_subsector") #rename variable
+    rename("Sector" = "territorial_emissions_statistics_sector") #%>% #rename variable
+    #rename("Subsector" = "territorial_emissions_statistics_subsector") #rename variable
   
   #Summarize positive emissions
   GHG_postable <- GHG_table %>%
@@ -591,9 +603,9 @@ DT::renderDataTable({
   ag_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
-    filter(tes_sector == "Agriculture") %>%
-    rename("Subsector" = "tes_subsector") %>% #rename variable
-    rename("Category" = "tes_category") %>% #rename variable
+    filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+    rename("Subsector" = "territorial_emissions_statistics_subsector") %>% #rename variable
+    rename("Category" = "territorial_emissions_statistics_category") %>% #rename variable
     rename("Activity" = "activity") #rename variable
   
   #Summarize emissions
@@ -629,11 +641,11 @@ DT::renderDataTable({
   LULUCF_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
-    filter(tes_sector == "LULUCF") %>%
+    filter(territorial_emissions_statistics_sector == "LULUCF") %>%
     mutate(pos_e = ifelse(emissions_mt_co2e >= 0, emissions_mt_co2e, 0)) %>%
     mutate(neg_e = ifelse(emissions_mt_co2e <= 0, emissions_mt_co2e, 0)) %>%
-    rename("Subsector" = "tes_subsector") %>% #rename variable
-    rename("Category" = "tes_category") %>% #rename variable
+    rename("Subsector" = "territorial_emissions_statistics_subsector") %>% #rename variable
+    rename("Category" = "territorial_emissions_statistics_category") %>% #rename variable
     rename("Source" = "source_2") #rename variable
   
   #Summarize positive emissions
@@ -689,8 +701,8 @@ DT::renderDataTable({
   w_table <- GHG_UK %>%
     filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
-    filter(tes_sector == "Waste") %>%
-    rename("Category" = "tes_category") %>% #rename variable
+    filter(territorial_emissions_statistics_sector == "Waste") %>%
+    rename("Category" = "territorial_emissions_statistics_category") %>% #rename variable
     rename("Source" = "source_2") #rename variable
   
   #Summarize emissions
@@ -729,11 +741,11 @@ produce_deptplot <- shiny::reactive({
 deptplot <- GHG_UK %>% 
   filter(year == input$select_Year &
              ghg_grouped %in% input$select_GHG) %>%
-  group_by(department, tes_sector) %>%
+  group_by(department, territorial_emissions_statistics_sector) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   droplevels() %>%
   ungroup() %>%
-  plot_ly(x = ~department, type = 'bar', y = ~Temissions, color = ~tes_sector, colors = colors_alphabetically, 
+  plot_ly(x = ~department, type = 'bar', y = ~Temissions, color = ~territorial_emissions_statistics_sector, colors = colors_alphabetically, 
           marker = list(
             width = 1.5)) %>%
   layout(title = '',
@@ -773,13 +785,13 @@ produce_agplot <- shiny::reactive({
 
 #Bar plot by subsector, stacked by GHG with Plotly
 agbar_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
   filter(year == input$select_Year) %>%
-  group_by(tes_subsector, ghg, ghg_grouped) %>%
+  group_by(territorial_emissions_statistics_subsector, ghg, ghg_grouped) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg_grouped, values_from=Temissions) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_subsector, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
+  plot_ly(x = ~territorial_emissions_statistics_subsector, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
   add_trace(y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
   add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
   layout(yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
@@ -806,12 +818,12 @@ produce_agcatplot <- shiny::reactive({
   
 #Bar plot by category, filled by subsector with Plotly
 agcat_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-  group_by(tes_subsector, tes_category) %>%
+  group_by(territorial_emissions_statistics_subsector, territorial_emissions_statistics_category) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_category, type = 'bar', y = ~Temissions, color = ~tes_subsector, colors = colors_bysize,
+  plot_ly(x = ~territorial_emissions_statistics_category, type = 'bar', y = ~Temissions, color = ~territorial_emissions_statistics_subsector, colors = colors_bysize,
           marker = list(
             width = 1.5)) %>%
   layout(title = 'Agriculture Emissions by TES Subsector and Category',
@@ -840,8 +852,8 @@ produce_agls <- shiny::reactive({
 
 #Bar plot livestock category, stacked by animal with Plotly
 agls_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Livestock") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_subsector == "Livestock") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   group_by(category_1, category_2) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -874,8 +886,8 @@ produce_agls2 <- shiny::reactive({
   
 #Bar plot livestock animals, stacked by GHG with Plotly
 agls2_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Livestock") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_subsector == "Livestock") %>%
   filter(year == input$select_Year) %>%
   group_by(category_2, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -908,8 +920,8 @@ produce_soil1 <- shiny::reactive({
   
 #Bar plot data soil category and source
 agsoil_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Agricultural soils") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_subsector == "Agricultural soils") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   group_by(category_1, source_3) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -957,14 +969,14 @@ produce_soil2 <- shiny::reactive({
 
 #Bar plot soil, stacked by GHG with Plotly
 agsoil2_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Agricultural soils") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_subsector == "Agricultural soils") %>%
   filter(year == input$select_Year) %>%
-  group_by(tes_category, ghg) %>%
+  group_by(territorial_emissions_statistics_category, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_category, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
+  plot_ly(x = ~territorial_emissions_statistics_category, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
   add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
   layout(title = 'Agricultural Soil Emissions by Category',
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
@@ -991,8 +1003,8 @@ produce_agcom <- shiny::reactive({
   
 #Bar plot combustion, stacked by fuel type with Plotly
 agcom_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Agricultural combustion") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_subsector == "Agricultural combustion") %>%
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
   group_by(category_1, activity) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
@@ -1032,14 +1044,14 @@ produce_agother <- shiny::reactive({
   
 #Bar plot other ag, stacked by GHG
 agother_int <- GHG_UK %>% 
-  filter(tes_sector == "Agriculture") %>%
-  filter(tes_subsector == "Other agriculture") %>%
+  filter(territorial_emissions_statistics_sector == "Agriculture") %>%
+  filter(territorial_emissions_statistics_subsector == "Other agriculture") %>%
   filter(year == input$select_Year) %>%
-  group_by(tes_category, ghg) %>%
+  group_by(territorial_emissions_statistics_category, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_category, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
+  plot_ly(x = ~territorial_emissions_statistics_category, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
   layout(title = 'Other Agricultural Emissions',
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''), 
@@ -1068,12 +1080,12 @@ produce_wplot <- shiny::reactive({
   #Bar plot by subsector, stacked by GHG with Plotly
 Waste_int <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "Waste") %>%
-  group_by(tes_category, ghg, ghg_grouped) %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  group_by(territorial_emissions_statistics_category, ghg, ghg_grouped) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg_grouped, values_from=Temissions) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_category, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
+  plot_ly(x = ~territorial_emissions_statistics_category, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
   add_trace(y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
   add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
   layout(yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
@@ -1100,11 +1112,11 @@ produce_wplot2 <- shiny::reactive({
 #Bar plot by category, filled by subsector with Plotly
 Waste_int2 <- GHG_UK %>% 
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-  filter(tes_sector == "Waste") %>%
-  group_by(tes_category, activity) %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  group_by(territorial_emissions_statistics_category, activity) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_category, type = 'bar', y = ~Temissions, color = ~activity, colors = colors_bysize
+  plot_ly(x = ~territorial_emissions_statistics_category, type = 'bar', y = ~Temissions, color = ~activity, colors = colors_bysize
           ) %>%
   layout(title = 'Waste Emissions by TES Category and Activity',
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
@@ -1133,8 +1145,8 @@ produce_wwplot <- shiny::reactive({
 #Bar plot by category, filled by subsector with Plotly
 wwater <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "Waste") %>%
-  filter(tes_category == "Wastewater") %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  filter(territorial_emissions_statistics_category == "Wastewater") %>%
   group_by(source, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
@@ -1167,8 +1179,8 @@ produce_incplot <- shiny::reactive({
 #Bar plot by category, filled by subsector with Plotly
 incin <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "Waste") %>%
-  filter(tes_category == "Incineration without energy recovery") %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  filter(territorial_emissions_statistics_category == "Incineration without energy recovery") %>%
   group_by(source_2, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
@@ -1202,8 +1214,8 @@ produce_compostplot <- shiny::reactive({
 #Bar plot by category, filled by subsector with Plotly
 compost <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "Waste") %>%
-  filter(tes_category == "Composting") %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  filter(territorial_emissions_statistics_category == "Composting") %>%
   group_by(source, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
@@ -1236,8 +1248,8 @@ produce_ADplot <- shiny::reactive({
 #Bar plot by category, filled by subsector with Plotly
 AD <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "Waste") %>%
-  filter(tes_category == "Anaerobic digestion") %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  filter(territorial_emissions_statistics_category == "Anaerobic digestion") %>%
   group_by(source_1, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
@@ -1269,8 +1281,8 @@ produce_fireplot <- shiny::reactive({
 #Bar plot by category, filled by subsector with Plotly
 fire <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "Waste") %>%
-  filter(tes_category == "Accidental fires") %>%
+  filter(territorial_emissions_statistics_sector == "Waste") %>%
+  filter(territorial_emissions_statistics_category == "Accidental fires") %>%
   group_by(source_2, ghg) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg, values_from=Temissions) %>%
@@ -1307,12 +1319,12 @@ produce_lulucf <- shiny::reactive({
   #Bar plot by subsector, stacked by GHG with Plotly
 LULUCF_int <- GHG_UK %>% 
   filter(year == input$select_Year) %>%
-  filter(tes_sector == "LULUCF") %>%
-  group_by(tes_subsector, ghg, ghg_grouped) %>%
+  filter(territorial_emissions_statistics_sector == "LULUCF") %>%
+  group_by(territorial_emissions_statistics_subsector, ghg, ghg_grouped) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   pivot_wider(names_from = ghg_grouped, values_from=Temissions) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_subsector, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
+  plot_ly(x = ~territorial_emissions_statistics_subsector, type = 'bar', y = ~CO2, name = 'CO2', marker = list(color ="#3CBD9C")) %>%
   add_trace(y = ~CH4, name = 'CH4', marker = list(color ="#C24841")) %>%
   add_trace(y = ~N2O, name = 'N2O', marker = list(color ="#D38744")) %>%
   layout(yaxis = list(title = 'Emissions/Removals (Mt CO2 eq.)'), 
@@ -1339,11 +1351,11 @@ produce_lulucf2 <- shiny::reactive({
   #Bar plot by category, filled by subsector with Plotly
 LULUCFcat_int <- GHG_UK %>% 
   filter(year == input$select_Year & ghg_grouped %in% input$select_GHG) %>%
-  filter(tes_sector == "LULUCF") %>%
-  group_by(tes_subsector, tes_category) %>%
+  filter(territorial_emissions_statistics_sector == "LULUCF") %>%
+  group_by(territorial_emissions_statistics_subsector, territorial_emissions_statistics_category) %>%
   summarize(Temissions = sum(emissions_mt_co2e, na.rm = TRUE)) %>%
   droplevels() %>%
-  plot_ly(x = ~tes_subsector, type = 'bar', y = ~Temissions, color = ~tes_category, 
+  plot_ly(x = ~territorial_emissions_statistics_subsector, type = 'bar', y = ~Temissions, color = ~territorial_emissions_statistics_category, 
           colors = colors_bysize,
           marker = list(
             width = 1.5
