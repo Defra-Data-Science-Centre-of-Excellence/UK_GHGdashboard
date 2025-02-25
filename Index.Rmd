@@ -188,7 +188,6 @@ Row
 ```{r}
 
 renderValueBox({
-browser()
 #Calculate total positive emissions
 emissions <- GHG_UK %>%
   filter(emissions_mt_co2e >= "0") %>%
