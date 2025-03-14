@@ -364,8 +364,10 @@ produce_eplot <- shiny::reactive({
       <extra></extra>")
   
   #sb
+    #%>%
+  #config(toImageButtonOptions = list(format = "png", width = 1920, height = 1080))
   
-  })
+  
 
 renderPlotly({produce_eplot()})
 
