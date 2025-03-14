@@ -140,8 +140,11 @@ if (!interactive()) {
 Sidebar {.sidebar}
 ======================================================================
 
-#### Filters and Notes
+### Data Source
 
+Data displayed is from the most recent reporting year 2023, previous years can be selected for comparison using the filter below.
+
+### Filters and Further Information
 ```{r}
 
 #pickerInput via shinyWidgets to select multiple gases
@@ -181,9 +184,11 @@ Data for these visuals is from the [Department for Energy Security and Net Zero 
 
 High-Level View Across All Sectors {data-orientation=rows}
 =======================================================================
+
 Row
 -----------------------------------------------------------------------
 ### GHG Emissions (Mt CO2 eq.)
+
 
 ```{r}
 
@@ -355,7 +360,14 @@ produce_eplot <- shiny::reactive({
     layout(
       #margin = list(l = 10, r = 10, b = 10, t = 10),
       sunburstcolorway = colors_bysize
-    ) #%>%
+    ) %>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
+    
   
     style(sb, hovertemplate="%{label} 
       %{value:,.3r} Mt CO2 equivalents
@@ -363,11 +375,10 @@ produce_eplot <- shiny::reactive({
       %{percentRoot:.1%} of Total emissions
       <extra></extra>")
   
-  #sb
-    #%>%
-  #config(toImageButtonOptions = list(format = "png", width = 1920, height = 1080))
+  #sb 
+   
   
-  
+  })
 
 renderPlotly({produce_eplot()})
 
@@ -462,7 +473,14 @@ GHG_neg <- GHG_UK %>%
                  "#D38744", 
                  "#A780BB"
       )
-    ) #%>%
+    ) %>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
+  
     style(sb_neg, hovertemplate="%{label} 
       %{value:,.3r} Mt CO2 equivalents
       %{percentParent:.1%} of %{parent} removals
@@ -505,7 +523,13 @@ produce_tplot <- shiny::reactive({
       title = "",
                       xaxis = list(title = ""),
                       yaxis = list(title = "Emissions (Mt CO2 eq.)"),
-                      legend = list(orientation = "h"))
+                      legend = list(orientation = "h")) %>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
   
     style(Sect_time, hovertemplate="Year: %{x:,.r}
           Emissions: %{y:,.4r} Mt CO2eq") #define what hover label says, round x values, round y values to 4 sig. figs
@@ -526,7 +550,7 @@ Row {.tabset .tabset-fade}
 
 ```{r}
 
-DT::renderDataTable({
+DT::renderDataTable(server= FALSE,{
   
   #Run validate an input is selected
   validate(
@@ -585,10 +609,17 @@ DT::renderDataTable({
   #Call Datatable, options
   DT::datatable(GHG_summary, 
                 rownames = FALSE, #no row number labels
+                                extensions = "Buttons",
                 options = list(
-                               dom = 't', #hide search box
-                               bPaginate = FALSE #don't need more pages
-  ))
+               dom = 'Bfrtip',
+               buttons = list(list(extend = "csv", text = "Download Table", filename = "data",
+               exportOptions = list(
+                 modifier = list(page = "all")
+               )
+                 
+               ))
+                ))
+
   
 })
 
@@ -598,7 +629,7 @@ DT::renderDataTable({
 
 ```{r}
 
-DT::renderDataTable({
+DT::renderDT(server = FALSE,{
   
   #Create filtered dataframe with columns for positive and negative emissions
   ag_table <- GHG_UK %>%
@@ -622,11 +653,21 @@ DT::renderDataTable({
   ag_summary <- head(ag_summary, n = agsummary_rows)
   
   #Call Datatable, options
-  DT::datatable(ag_summary, 
+  DT::datatable(ag_summary,
                 rownames = FALSE, #no row number labels
+                extensions = "Buttons",
                 options = list(
-                               bPaginate = TRUE #more pages
-  ))
+               dom = 'Bfrtip',
+               buttons = list(list(extend = "csv", text = "Download Table", filename = "data",
+               exportOptions = list(
+                 modifier = list(page = "all")
+               )
+                 
+               ))
+                ))
+  
+ 
+  
   
 })
 
@@ -636,7 +677,7 @@ DT::renderDataTable({
 
 ```{r}
 
-DT::renderDataTable({
+DT::renderDataTable(server = FALSE,{
   
   #Create filtered dataframe with columns for positive and negative emissions
   LULUCF_table <- GHG_UK %>%
@@ -684,9 +725,16 @@ DT::renderDataTable({
   #Call Datatable, options
   DT::datatable(LULUCF_summary, 
                 rownames = FALSE, #no row number labels
+                                extensions = "Buttons",
                 options = list(
-                               bPaginate = TRUE #more pages
-  ))
+               dom = 'Bfrtip',
+               buttons = list(list(extend = "csv", text = "Download Table", filename = "data",
+               exportOptions = list(
+                 modifier = list(page = "all")
+               )
+                 
+               ))
+                ))
   
 })
 
@@ -696,7 +744,7 @@ DT::renderDataTable({
 
 ```{r}
 
-DT::renderDataTable({
+DT::renderDataTable(server = FALSE,{
   
   #Create filtered dataframe with columns for positive and negative emissions
   w_table <- GHG_UK %>%
@@ -721,9 +769,16 @@ DT::renderDataTable({
   #Call Datatable, options
   DT::datatable(w_summary, 
                 rownames = FALSE, #no row number labels
+                                extensions = "Buttons",
                 options = list(
-                               bPaginate = TRUE #more pages
-  ))
+               dom = 'Bfrtip',
+               buttons = list(list(extend = "csv", text = "Download Table", filename = "data",
+               exportOptions = list(
+                 modifier = list(page = "all")
+               )
+                 
+               ))
+                ))
   
 })
 
@@ -754,7 +809,13 @@ deptplot <- GHG_UK %>%
          xaxis = list(title = '', tickangle = 0),
          legend = list(orientation = 'h'),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(deptplot, hovertemplate= "Department: %{x}
@@ -798,7 +859,13 @@ agbar_int <- GHG_UK %>%
   layout(yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(agbar_int, hovertemplate="Subsector: %{x}
@@ -832,7 +899,13 @@ agcat_int <- GHG_UK %>%
          xaxis = list(title = '', tickangle = -90),
          #legend = list(x = 0.8, y = 1, orientation = 'v'),
          barmode = 'group'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(agcat_int, 
@@ -867,7 +940,13 @@ agls_int <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''), 
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
   
 #Plotly customization
 style(agls_int, 
@@ -900,7 +979,13 @@ agls2_int <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''), 
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
   
 #Plotly customization
 style(agls2_int, 
@@ -950,7 +1035,13 @@ agsoil_int <- GHG_UK %>%
          xaxis = list(title = ''), 
          barmode = 'stack',
          hovermode = 'x'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
   
 #Plotly customization
 style(agsoil_int, 
@@ -983,7 +1074,13 @@ agsoil2_int <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''), 
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
   
 #Plotly customization
 style(agsoil2_int, 
@@ -1024,7 +1121,13 @@ agcom_int <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(agcom_int, 
@@ -1057,7 +1160,13 @@ agother_int <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''), 
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
   
 #Plotly customization
 style(agother_int, 
@@ -1092,7 +1201,13 @@ Waste_int <- GHG_UK %>%
   layout(yaxis = list(title = 'Emissions (Mt CO2 eq.)'), 
          xaxis = list(title = ''), 
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(Waste_int, hovertemplate="Category: %{x}
@@ -1124,7 +1239,13 @@ Waste_int2 <- GHG_UK %>%
          xaxis = list(title = ''),
          #legend = list(y=-0.2, orientation = 'h'),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(Waste_int2, 
@@ -1158,7 +1279,13 @@ wwater <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(wwater, 
@@ -1193,7 +1320,13 @@ incin <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(incin, 
@@ -1227,7 +1360,13 @@ compost <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(compost, 
@@ -1260,7 +1399,13 @@ AD <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(AD, 
@@ -1293,7 +1438,13 @@ fire <- GHG_UK %>%
          yaxis = list(title = 'Emissions (Mt CO2 eq.)'),
          xaxis = list(title = ''),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(fire, 
@@ -1331,7 +1482,13 @@ LULUCF_int <- GHG_UK %>%
   layout(yaxis = list(title = 'Emissions/Removals (Mt CO2 eq.)'), 
          xaxis = list(title = 'Subsector'), 
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 #Plotly customization
 style(LULUCF_int, hovertemplate="Subsector: %{x}
@@ -1366,7 +1523,13 @@ LULUCFcat_int <- GHG_UK %>%
          xaxis = list(title = '', tickangle = -90),
          #legend = list(orientation = 'h'),
          barmode = 'stack'
-         )
+         )%>%
+      config(
+      toImageButtonOptions = list(
+      format = "png",
+      scale = 2
+      )
+    )
 
 
 #Plotly customization
